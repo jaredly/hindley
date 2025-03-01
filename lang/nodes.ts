@@ -4,20 +4,8 @@ export type NodeID = string;
 
 export type Loc = { id: string; idx: NodeID };
 
-export type IdRef =
-    | {
-          type: 'toplevel';
-          loc: { id: string; idx: NodeID };
-          kind: string;
-          lock?: { hash: string; manual: boolean };
-      }
-    // Soo this will have a look-uppable name too
-    | { type: 'resource'; id: string; kind: string; hash?: string }
-    | { type: 'builtin'; kind: string }
-    | { type: 'keyword' };
-
 // ccls = "char class" i.e. what kind of punctuation. 0 = normal text
-export type Id<Loc> = { type: 'id'; text: string; ref?: IdRef; loc: Loc; ccls?: number };
+export type Id<Loc> = { type: 'id'; text: string; loc: Loc; ccls?: number };
 
 export type Link = { type: 'www'; href: string } | { type: 'term'; id: string; hash?: string } | { type: 'doc'; id: string; hash?: string };
 
@@ -119,26 +107,9 @@ export type RecNodeT<Loc> = Id<Loc> | RecText<Loc> | RecCollection<Loc>;
 export type RecNode = RecNodeT<Loc>;
 export type Nodes = Record<NodeID, Node>;
 
-const refsEqual = (one: IdRef, two: IdRef): boolean => {
-    switch (one.type) {
-        case 'builtin':
-            return two.type === 'builtin' && two.kind === one.kind;
-        case 'keyword':
-            return two.type === 'keyword';
-        case 'resource':
-            return two.type === 'resource' && two.id === one.id && two.hash === one.hash;
-        case 'toplevel':
-            return two.type === 'toplevel' && two.kind === one.kind && two.lock?.hash === one.lock?.hash && two.lock?.manual === one.lock?.manual;
-    }
-};
-
 export const equal = <One, Two>(one: RecNodeT<One>, two: RecNodeT<Two>, loc: (one: One, two: Two) => boolean): boolean => {
     if (one.type === 'id') {
         if (two.type !== 'id') return false;
-        if (one.ref) {
-            if (!two.ref) return false;
-            if (!refsEqual(one.ref, two.ref)) return false;
-        }
         return one.text === two.text && loc(one.loc, two.loc);
     }
     if (one.type === 'list') {
