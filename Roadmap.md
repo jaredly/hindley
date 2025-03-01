@@ -1,4 +1,26 @@
 
+basic lex idea:
+
+parent.children, has IDs and also blanks.
+If the last one is a blank, that means it's a placeholder spot.
+if it's not a blank, you need to smoosh.
+
+yeah that seems like a winning strategy
+
+
+----
+
+thinking about .... getting a basic language working.
+is that useful? necessary? interesting?
+...
+should I do a lexer?
+
+I could just bundle up the keyHandlers from j3.
+
+
+
+---- notes from keep ----
+
 Decoding the mathematical format, here's what it looks like in typescript
 Getting some intuition about how the algorithm comes together.
 Maybe doing a naive thing and showing where it breaks down?
