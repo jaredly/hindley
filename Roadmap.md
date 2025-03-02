@@ -1,4 +1,23 @@
 
+Lexer
+- [x] ids
+- [x] basic lists
+- [x] basic strings with embeds
+Maybe not
+- [ ] tables
+- [ ] rich text
+- [ ] jsx
+
+
+Ok, now that lexing is done...
+...we need to make the basic js-- parser, right?
+
+
+
+
+
+
+
 basic lex idea:
 
 parent.children, has IDs and also blanks.
