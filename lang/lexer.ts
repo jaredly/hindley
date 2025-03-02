@@ -2,7 +2,7 @@
  * Lex text into the CST
  */
 
-import { Collection, List, ListKind, NodeID, Nodes, NodeT, RecCollection, RecList, RecNodeT } from './nodes';
+import { Collection, List, ListKind, NodeID, Nodes, NodeT, RecCollection, RecList, RecNodeT, Text } from './nodes';
 
 export const lisp = {
     punct: [';', '.', '@', '=#+'],
@@ -37,7 +37,7 @@ export type Config = {
     tableNew: string;
 };
 
-type Pos = { start: number; end: number; id: string };
+// type NodeID = { start: number; end: number; id: string };
 
 export type Kind = number | 'space' | 'sep' | 'string'; // | 'bar';
 
@@ -74,39 +74,137 @@ const ticker = () => {
 };
 
 export const lex = (config: Config, input: string) => {
-    const nodes: Record<string, NodeT<Pos>> = {};
+    const nodes: Record<string, NodeT<NodeID>> = {};
     const path: string[] = [];
     const ts = ticker();
+    const smap: Record<string, { start: number; end: number }> = {};
 
-    const add = (node: NodeT<Pos>) => {
-        nodes[node.loc.id] = node
-        const parent = nodes[path[path.length - 1]] as List<Pos>
+    const getParent = () => nodes[path[path.length - 1]] as List<NodeID> | Text<NodeID>;
+
+    const add = (node: NodeT<NodeID>) => {
+        nodes[node.loc] = node;
+        const parent = getParent();
+        if (parent.type === 'text') {
+            const last = parent.spans[parent.spans.length - 1];
+            if (last?.type !== 'embed') throw new Error(`need embed to put in`);
+            if (last.item === '') {
+                last.item = node.loc;
+                return;
+            }
+            const prev = last.item;
+            const smoosh: List<NodeID> = { type: 'list', kind: 'smooshed', children: [prev, node.loc], loc: ts() };
+            smap[smoosh.loc] = { start: smap[prev].start, end: smap[node.loc].end };
+            last.item = smoosh.loc;
+            nodes[smoosh.loc] = smoosh;
+            path.push(smoosh.loc);
+            return;
+        }
         if (parent.children.length === 0 || parent.kind === 'smooshed') {
-            parent.children.push(node.loc.id)
-            return
+            parent.children.push(node.loc);
+            return;
         }
-        const at = parent.children.length -1
+        const at = parent.children.length - 1;
         if (parent.children[at] === '') {
-            parent.children[at] = node.loc.id
-            return
+            parent.children[at] = node.loc;
+            return;
         }
-        const prev = parent.children[at]
-        const smoosh: List<Pos> = {type: 'list', kind: 'smooshed',  children: [prev, node.loc.id], loc: {id: ts(), start: nodes[prev].loc.start, end: node.loc.end}}
-        parent.children[at] = smoosh.loc.id
-        nodes[smoosh.loc.id] = smoosh
-        path.push(smoosh.loc.id)
-    }
+        const prev = parent.children[at];
+        const smoosh: List<NodeID> = { type: 'list', kind: 'smooshed', children: [prev, node.loc], loc: ts() };
+        smap[smoosh.loc] = { start: smap[prev].start, end: smap[node.loc].end };
+        parent.children[at] = smoosh.loc;
+        nodes[smoosh.loc] = smoosh;
+        path.push(smoosh.loc);
+    };
+
+    const addSpace = () => {
+        let parent = getParent();
+
+        if (parent.type === 'list' && parent.kind === 'smooshed') {
+            path.pop();
+            smap[parent.loc].end = i;
+            parent = getParent();
+        }
+
+        if (parent.type === 'text') {
+            const last = parent.spans[parent.spans.length - 1];
+            if (last?.type !== 'embed') throw new Error(`need embed to put in`);
+            let prev = last.item;
+            if (prev == '') {
+                prev = ts();
+                nodes[prev] = { type: 'id', text: '', loc: prev };
+                smap[prev] = { start: i, end: i };
+            }
+            const space: List<NodeID> = { type: 'list', kind: 'spaced', children: [prev, ''], loc: ts() };
+            smap[space.loc] = { start: smap[prev].start, end: i };
+            last.item = space.loc;
+            nodes[space.loc] = space;
+            path.push(space.loc);
+            return;
+        }
+
+        if (parent.kind === 'spaced') {
+            parent.children.push('');
+        } else {
+            let prev = parent.children.length ? parent.children[parent.children.length - 1] : null;
+            if (prev == null) {
+                prev = ts();
+                nodes[prev] = { type: 'id', text: '', loc: prev };
+                smap[prev] = { start: i, end: i };
+            }
+            const loc: NodeID = ts();
+            smap[loc] = { start: i + 1, end: i + 1 };
+            parent.children[parent.children.length - 1] = loc;
+            path.push(loc);
+            nodes[loc] = { type: 'list', kind: 'spaced', children: [prev, ''], loc };
+        }
+    };
+
+    const addSep = () => {
+        let parent = getParent();
+        if (parent.type === 'text') {
+            throw new Error(`cant sep in text embed`);
+        }
+
+        while (parent.kind === 'smooshed' || parent.kind === 'spaced') {
+            path.pop();
+            smap[parent.loc].end = i;
+            parent = getParent();
+            if (parent.type === 'text') {
+                throw new Error(`cant sep in text embed`);
+            }
+        }
+
+        parent.children.push('');
+    };
 
     let i = 0;
     while (i < input.length) {
         const char = input[i];
-        let parent = nodes[path[path.length - 1]] as List<Pos>;
+        let parent = getParent();
+
+        if (parent.type === 'text') {
+            if (char === '"') {
+                path.pop();
+                smap[parent.loc].end = i + 1;
+                i++;
+                continue;
+            }
+            if (char === '$' && input[i + 1] === '{') {
+                const loc = ts();
+                const id = ts();
+                parent.spans.push({ type: 'embed', item: id, loc });
+            }
+            if (!parent.spans.length) {
+            }
+            continue;
+        }
 
         const wrap = wrapKind(char);
         if (wrap) {
-            const loc: Pos = { start: i, end: i, id: ts() };
-            add({ type: 'list', kind: wrap, children: [], loc };)
-            path.push(loc.id);
+            const loc: NodeID = ts();
+            smap[loc] = { start: i, end: i };
+            add({ type: 'list', kind: wrap, children: [], loc });
+            path.push(loc);
             i++;
             continue;
         }
@@ -114,15 +212,18 @@ export const lex = (config: Config, input: string) => {
         const close = closerKind(char);
         if (close) {
             while (parent.kind === 'smooshed' || parent.kind === 'spaced') {
-                path.pop()
-                parent.loc.end = i
-                parent = nodes[path[path.length - 1]] as List<Pos>;
+                path.pop();
+                smap[parent.loc].end = i;
+                parent = getParent();
+                if (parent.type === 'text') {
+                    throw new Error(`cant close in a text`);
+                }
             }
             if (close !== parent.kind) {
                 throw new Error(`unexpected close ${close} - expected ${parent.kind}`);
             }
             i++;
-            parent.loc.end = i;
+            smap[parent.loc].end = i;
             path.pop();
             continue;
         }
@@ -130,20 +231,21 @@ export const lex = (config: Config, input: string) => {
         const kind = textKind(char, config);
         switch (kind) {
             case 'space':
-                if (parent.kind === 'spaced') {
-                    parent.children.push('');
-                    i++;
-                } else {
-                    const prev = parent.children[parent.children.length - 1];
-                    if (!prev) {
-                        throw new Error('add a blank');
-                    }
-                    const loc: Pos = { start: i, end: i, id: ts() };
-                    parent.children[parent.children.length - 1] = loc.id;
-                    path.push(loc.id);
-                    nodes[loc.id] = { type: 'list', kind: 'spaced', children: [prev, ''], loc };
-                    i++;
-                }
+                addSpace();
+                i++;
+                continue;
+            case 'sep':
+                addSep();
+                i++;
+                continue;
+            case 'string': {
+                const loc: NodeID = ts();
+                smap[loc] = { start: i, end: i };
+                add({ type: 'text', loc, spans: [] });
+                path.push(loc);
+                i++;
+                continue;
+            }
         }
     }
 };
