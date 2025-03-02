@@ -79,10 +79,15 @@ export const lex = (config: Config, input: string) => {
     const ts = ticker();
     const smap: Record<string, { start: number; end: number }> = {};
 
+    const root = ts();
+    path.push(root);
+    nodes[root] = { type: 'list', children: [], kind: 'round', loc: root };
+
     const getParent = () => nodes[path[path.length - 1]] as List<NodeID> | Text<NodeID>;
 
     const add = (node: NodeT<NodeID>) => {
         nodes[node.loc] = node;
+        if (!smap[node.loc]) smap[node.loc] = { start: i, end: i };
         const parent = getParent();
         if (parent.type === 'text') {
             const last = parent.spans[parent.spans.length - 1];
@@ -178,7 +183,7 @@ export const lex = (config: Config, input: string) => {
     };
 
     let i = 0;
-    while (i < input.length) {
+    for (; i < input.length; i++) {
         const char = input[i];
         let parent = getParent();
 
@@ -186,16 +191,22 @@ export const lex = (config: Config, input: string) => {
             if (char === '"') {
                 path.pop();
                 smap[parent.loc].end = i + 1;
-                i++;
                 continue;
             }
             if (char === '$' && input[i + 1] === '{') {
                 const loc = ts();
                 const id = ts();
                 parent.spans.push({ type: 'embed', item: id, loc });
+                i++; // skip one }
+                continue;
             }
-            if (!parent.spans.length) {
+            const last = parent.spans[parent.spans.length];
+            if (last?.type !== 'text') {
+                const loc = ts();
+                parent.spans.push({ type: 'text', loc, text: char });
+                continue;
             }
+            last.text += char;
             continue;
         }
 
@@ -205,24 +216,23 @@ export const lex = (config: Config, input: string) => {
             smap[loc] = { start: i, end: i };
             add({ type: 'list', kind: wrap, children: [], loc });
             path.push(loc);
-            i++;
             continue;
         }
 
         const close = closerKind(char);
         if (close) {
-            while (parent.kind === 'smooshed' || parent.kind === 'spaced') {
+            while (parent.type === 'list' && (parent.kind === 'smooshed' || parent.kind === 'spaced')) {
                 path.pop();
                 smap[parent.loc].end = i;
                 parent = getParent();
-                if (parent.type === 'text') {
-                    throw new Error(`cant close in a text`);
-                }
             }
-            if (close !== parent.kind) {
+            if (parent.type === 'text') {
+                if (close !== 'curly') {
+                    throw new Error(`text close must be curly`);
+                }
+            } else if (close !== parent.kind) {
                 throw new Error(`unexpected close ${close} - expected ${parent.kind}`);
             }
-            i++;
             smap[parent.loc].end = i;
             path.pop();
             continue;
@@ -232,22 +242,30 @@ export const lex = (config: Config, input: string) => {
         switch (kind) {
             case 'space':
                 addSpace();
-                i++;
                 continue;
             case 'sep':
                 addSep();
-                i++;
                 continue;
             case 'string': {
                 const loc: NodeID = ts();
                 smap[loc] = { start: i, end: i };
                 add({ type: 'text', loc, spans: [] });
                 path.push(loc);
-                i++;
+                continue;
+            }
+            default: {
+                const last = parent.children[parent.children.length - 1];
+                const node = nodes[last];
+                if (node?.type === 'id' && (node.ccls === undefined || node.ccls === kind)) {
+                    node.text += char;
+                } else {
+                    add({ type: 'id', loc: ts(), text: char, ccls: kind });
+                }
                 continue;
             }
         }
     }
+    return { nodes, root };
 };
 
 export const wrapKind = (key: string): ListKind<any> | void => {
