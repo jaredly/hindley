@@ -57,17 +57,6 @@ export const charClass = (grem: string, config: Config): number => {
     return 0; // 0 is the class for text
 };
 
-/* what is the core loop.
-
-like, you can call 'lex'
-and pass it in, like the ancestry?
-maybe.
-but when does it stop.
-or we only ever have one function?
-maybe that's what we do.
-
-*/
-
 const ticker = () => {
     let i = 0;
     return () => (i++).toString().padStart(3, '0');
@@ -98,7 +87,7 @@ export const lex = (config: Config, input: string) => {
             }
             const prev = last.item;
             const smoosh: List<NodeID> = { type: 'list', kind: 'smooshed', children: [prev, node.loc], loc: ts() };
-            smap[smoosh.loc] = { start: smap[prev].start, end: smap[node.loc].end };
+            smap[smoosh.loc] = { start: smap[prev]?.start ?? -1, end: smap[node.loc].end };
             last.item = smoosh.loc;
             nodes[smoosh.loc] = smoosh;
             path.push(smoosh.loc);
@@ -139,11 +128,11 @@ export const lex = (config: Config, input: string) => {
                 nodes[prev] = { type: 'id', text: '', loc: prev };
                 smap[prev] = { start: i, end: i };
             }
-            const space: List<NodeID> = { type: 'list', kind: 'spaced', children: [prev, ''], loc: ts() };
-            smap[space.loc] = { start: smap[prev].start, end: i };
-            last.item = space.loc;
-            nodes[space.loc] = space;
-            path.push(space.loc);
+            const loc = ts();
+            nodes[loc] = { type: 'list', kind: 'spaced', children: [prev, ''], loc };
+            smap[loc] = { start: smap[prev].start, end: i };
+            last.item = loc;
+            path.push(loc);
             return;
         }
 
@@ -187,7 +176,7 @@ export const lex = (config: Config, input: string) => {
         const char = input[i];
         let parent = getParent();
 
-        if (parent.type === 'text') {
+        if (parent.type === 'text' && parent.spans[parent.spans.length - 1]?.type !== 'embed') {
             if (char === '"') {
                 path.pop();
                 smap[parent.loc].end = i + 1;
@@ -195,12 +184,11 @@ export const lex = (config: Config, input: string) => {
             }
             if (char === '$' && input[i + 1] === '{') {
                 const loc = ts();
-                const id = ts();
-                parent.spans.push({ type: 'embed', item: id, loc });
+                parent.spans.push({ type: 'embed', item: '', loc });
                 i++; // skip one }
                 continue;
             }
-            const last = parent.spans[parent.spans.length];
+            const last = parent.spans[parent.spans.length - 1];
             if (last?.type !== 'text') {
                 const loc = ts();
                 parent.spans.push({ type: 'text', loc, text: char });
@@ -230,6 +218,8 @@ export const lex = (config: Config, input: string) => {
                 if (close !== 'curly') {
                     throw new Error(`text close must be curly`);
                 }
+                parent.spans.push({ type: 'text', loc: ts(), text: '' });
+                continue;
             } else if (close !== parent.kind) {
                 throw new Error(`unexpected close ${close} - expected ${parent.kind}`);
             }
@@ -254,8 +244,15 @@ export const lex = (config: Config, input: string) => {
                 continue;
             }
             default: {
-                const last = parent.children[parent.children.length - 1];
-                const node = nodes[last];
+                let node;
+                if (parent.type === 'text') {
+                    const last = parent.spans[parent.spans.length - 1];
+                    if (last.type !== 'embed') throw new Error('shoulndt get here');
+                    node = nodes[last.item];
+                } else {
+                    const last = parent.children[parent.children.length - 1];
+                    node = nodes[last];
+                }
                 if (node?.type === 'id' && (node.ccls === undefined || node.ccls === kind)) {
                     node.text += char;
                 } else {
@@ -293,14 +290,3 @@ export const closerKind = (key: string): ListKind<any> | void => {
         //     return 'angle';
     }
 };
-
-// export const keyUpdate = (state: TestState, key: string, mods: Mods, visual?: Visual, config: Config = js): KeyAction[] | void => {
-//     } else if (wrapKind(key)) {
-//         return handleWrap(state, key);
-//     } else if (closerKind(key)) {
-//         return handleClose(state, key);
-//     } else {
-//         // TODO ctrl-enter, need to pipe it in
-//         return handleKey(state, key, config, mods);
-//     }
-// };

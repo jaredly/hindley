@@ -282,3 +282,49 @@ export const mapLocs = <From, To>(node: RecNodeT<From>, get: (l: From, path: To[
             };
     }
 };
+
+export const shape = (node: RecNodeT<unknown>): string => {
+    switch (node.type) {
+        case 'id':
+            return `id(${node.text}${node.ccls != null ? '/' + node.ccls : ''})`;
+        case 'list':
+            const ml = node.forceMultiline ? '/ML' : '';
+            if (node.kind === 'round') {
+                return `(${node.children.map(shape).join(' ')}${ml})`;
+            }
+            if (node.kind === 'square') {
+                return `[${node.children.map(shape).join(' ')}${ml}]`;
+            }
+            if (typeof node.kind === 'string') {
+                return `list[${node.kind}](${node.children.map(shape).join(' ')}${ml})`;
+            }
+            if (node.kind.type === 'tag') {
+                return `xml[${shape(node.kind.node)}${node.kind.attributes ? ' ' + shape(node.kind.attributes) : ''}](${node.children
+                    .map(shape)
+                    .join(' ')}${ml})`;
+            }
+            return `list[${node.kind.type}](${node.children.map(shape).join(' ')}${ml})`;
+        case 'table':
+            const mi = node.rows.map((row) => row.map(shape).join(',')).join(';');
+            if (node.kind === 'curly') {
+                return `{:${mi}:}`;
+            }
+            if (node.kind === 'round') {
+                return `(:${mi}:)`;
+            }
+            return `[:${mi}:]`;
+        case 'text':
+            return `text(${node.spans
+                .map((span) => {
+                    switch (span.type) {
+                        case 'text':
+                            return span.text;
+                        case 'embed':
+                            return `\${${shape(span.item)}}`;
+                        default:
+                            throw new Error('not shaping a ' + span.type);
+                    }
+                })
+                .join('|')})`;
+    }
+};
