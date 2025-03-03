@@ -1,8 +1,8 @@
-import { test, expect } from 'bun:test';
-import { js, lex } from './lexer';
-import { fromMap, fromRec, shape } from './nodes';
+import { expect, test } from 'bun:test';
 import { parser } from './js--';
 import { compileStmt, sourcedToString } from './js--compile';
+import { js, lex } from './lexer';
+import { fromMap } from './nodes';
 
 const inputs = [
     `one + two`,
@@ -17,7 +17,7 @@ const inputs = [
 inputs.forEach((source) => {
     test('parse ' + source, () => {
         const res = lex(js, source);
-        const rec = fromMap(res.root, res.nodes, (l) => ({ id: '', idx: l }));
+        const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));
         const parsed = parser.parse(rec, undefined);
         expect(parsed.result).toBeTruthy();
     });
@@ -25,7 +25,7 @@ inputs.forEach((source) => {
 
 test('evall', () => {
     const res = lex(js, 'let x = (a,b) => {let y = 2\nreturn y * (a + b)}');
-    const rec = fromMap(res.root, res.nodes, (l) => ({ id: '', idx: l }));
+    const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));
     const parsed = parser.parse(rec, undefined);
     expect(parsed.result).toBeTruthy();
     const sourced = compileStmt(parsed.result);
@@ -44,7 +44,7 @@ const fixtures: [string, any][] = [
 fixtures.forEach(([input, output]) => {
     test(`eval ${input}`, () => {
         const res = lex(js, input);
-        const rec = fromMap(res.root, res.nodes, (l) => ({ id: '', idx: l }));
+        const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));
         const parsed = parser.parse(rec, undefined);
         expect(parsed.result).toBeTruthy();
         const sourced = compileStmt(parsed.result);

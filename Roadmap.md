@@ -12,6 +12,30 @@ Maybe not
 Ok, now that lexing is done...
 ...we need to make the basic js-- parser, right?
 
+- [x] lex it up
+- [x] parse to js--
+- [x] eval js--
+- [ ] ... make nontrivial programs in js--? like ... a parser?
+  not sure how I feel about that, if we're in a world without ide amenities.
+  I'd want to make like an AST inspector or something, right?
+  hmm.
+  ok ultimately I want to implement HM(x) or Algorithm W in js, or js--, or js++.
+
+  ok new, less bootstrappy plan:
+  - let's make js++
+    - ADTs
+    - very nice pattern matching
+    - and maybe macros too?
+  - then we implement HM in that.
+  annnd maybe we do it in the j3 IDE?
+  hm.
+
+  ok new new plan.
+  first we implement algorithm w and maybe j and also HM(x).
+  then we evaluate what we need in order to tell the story.
+
+
+
 
 
 
