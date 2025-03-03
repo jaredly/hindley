@@ -1,26 +1,29 @@
 // Based on https://compiler.jaredforsyth.com/algw-s2
 
-type Prim = { type: 'int'; value: number } | { type: 'bool'; value: boolean };
-type Top =
+import { Stmt, Expr as JSExpr } from '../../lang/js--types';
+import { Src } from '../../lang/parse-dsl';
+
+export type Prim = { type: 'int'; value: number } | { type: 'bool'; value: boolean };
+export type Top =
     | { type: 'def'; name: string; body: Expr }
     | { type: 'expr'; expr: Expr }
     | { type: 'deftype'; name: string; args: string[]; constructors: { name: string; args: Type[] }[] }
     | { type: 'typealias'; name: string; args: string[]; alias: Type };
-type Expr =
-    | { type: 'prim'; prim: Prim }
-    | { type: 'var'; name: string }
-    | { type: 'str'; value: string }
-    | { type: 'lambda'; args: Pat[]; body: Expr }
-    | { type: 'app'; target: Expr; args: Expr[] }
-    | { type: 'let'; vbls: { pat: Pat; init: Expr }[]; body: Expr }
-    | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[] };
-type Pat =
-    | { type: 'any' }
-    | { type: 'var'; name: string }
-    | { type: 'con'; name: string; args: Pat[] }
-    | { type: 'str'; value: string }
-    | { type: 'prim'; prim: Prim };
-type Type = { type: 'var'; name: string } | { type: 'app'; target: Type; arg: Type } | { type: 'con'; name: string };
+export type Expr =
+    | { type: 'prim'; prim: Prim; src: Src }
+    | { type: 'var'; name: string; src: Src }
+    | { type: 'str'; value: string; src: Src }
+    | { type: 'lambda'; args: Pat[]; body: Expr; src: Src }
+    | { type: 'app'; target: Expr; args: Expr[]; src: Src }
+    | { type: 'let'; vbls: { pat: Pat; init: Expr }[]; body: Expr; src: Src }
+    | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src };
+export type Pat =
+    | { type: 'any'; src: Src }
+    | { type: 'var'; name: string; src: Src }
+    | { type: 'con'; name: string; args: Pat[]; src: Src }
+    | { type: 'str'; value: string; src: Src }
+    | { type: 'prim'; prim: Prim; src: Src };
+export type Type = { type: 'var'; name: string } | { type: 'app'; target: Type; arg: Type } | { type: 'con'; name: string };
 
 const typeEqual = (one: Type, two: Type): boolean => {
     if (one.type !== two.type) return false;
@@ -171,7 +174,7 @@ const varBind = (name: string, type: Type) => {
     addSubst({ [name]: type });
 };
 
-const unify = (one: Type, two: Type) => {
+export const unify = (one: Type, two: Type) => {
     if (one.type === 'var') {
         return varBind(one.name, two);
     }
@@ -190,7 +193,7 @@ const unify = (one: Type, two: Type) => {
     throw new Error(`incompatible types ${JSON.stringify(one)} : ${JSON.stringify(two)}`);
 };
 
-const inferExpr = (tenv: Tenv, expr: Expr) => {
+export const inferExpr = (tenv: Tenv, expr: Expr) => {
     const old = globalState.subst;
     globalState.subst = {};
     const type = inferExprInner(tenv, expr);
@@ -228,7 +231,12 @@ const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 return tfn(argType, bodyType);
             }
             const [one, ...rest] = expr.args;
-            return inferExpr(tenv, { type: 'lambda', args: [one], body: { type: 'lambda', args: rest, body: expr.body } });
+            return inferExpr(tenv, {
+                type: 'lambda',
+                args: [one],
+                body: { type: 'lambda', args: rest, body: expr.body, src: expr.src },
+                src: expr.src,
+            });
         case 'app': {
             if (expr.args.length === 1) {
                 const resultVar = newTypeVar('result');
@@ -241,13 +249,23 @@ const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             }
             if (!expr.args.length) return inferExpr(tenv, expr.target);
             const [one, ...rest] = expr.args;
-            return inferExpr(tenv, { type: 'app', target: { type: 'app', target: expr.target, args: [one] }, args: rest });
+            return inferExpr(tenv, {
+                type: 'app',
+                target: { type: 'app', target: expr.target, args: [one], src: expr.src },
+                args: rest,
+                src: expr.src,
+            });
         }
         case 'let': {
             if (expr.vbls.length === 1) throw new Error('no bindings in let');
             if (expr.vbls.length > 1) {
                 const [one, ...more] = expr.vbls;
-                return inferExpr(tenv, { type: 'let', vbls: [one], body: { type: 'let', vbls: more, body: expr.body } });
+                return inferExpr(tenv, {
+                    type: 'let',
+                    vbls: [one],
+                    body: { type: 'let', vbls: more, body: expr.body, src: expr.src },
+                    src: expr.src,
+                });
             }
             const { pat, init } = expr.vbls[0];
             if (pat.type === 'var') {
