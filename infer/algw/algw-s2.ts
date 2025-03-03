@@ -189,3 +189,116 @@ const unify = (one: Type, two: Type) => {
     }
     throw new Error(`incompatible types ${JSON.stringify(one)} : ${JSON.stringify(two)}`);
 };
+
+const inferExpr = (tenv: Tenv, expr: Expr) => {
+    const old = globalState.subst;
+    globalState.subst = {};
+    const type = inferExprInner(tenv, expr);
+    globalState.subst = composeSubst(globalState.subst, old);
+    return type;
+};
+
+const tfn = (arg: Type, body: Type): Type => ({ type: 'app', target: { type: 'app', target: { type: 'con', name: '->' }, arg }, arg: body });
+const tfns = (args: Type[], body: Type): Type => args.reduceRight((res, arg) => tfn(arg, res), body);
+
+const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
+    switch (expr.type) {
+        case 'prim':
+            return { type: 'con', name: expr.prim.type };
+        case 'var':
+            const got = tenv.scope[expr.name];
+            if (!got) throw new Error(`variable not found in scope ${expr.name}`);
+            return instantiate(got);
+        case 'str':
+            return { type: 'con', name: 'string' };
+        case 'lambda':
+            if (expr.args.length === 1) {
+                if (expr.args[0].type === 'var') {
+                    let argType = newTypeVar(expr.args[0].name);
+                    const boundEnv: Tenv = { ...tenv, scope: { ...tenv.scope, [expr.args[0].name]: { vars: [], body: argType } } };
+                    const bodyType = inferExpr(boundEnv, expr.body);
+                    argType = typeApply(globalState.subst, argType);
+                    return tfn(argType, bodyType);
+                }
+                let [argType, scope] = inferPattern(tenv, expr.args[0]);
+                scope = scopeApply(globalState.subst, scope);
+                const boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
+                const bodyType = inferExpr(boundEnv, expr.body);
+                argType = typeApply(globalState.subst, argType);
+                return tfn(argType, bodyType);
+            }
+            const [one, ...rest] = expr.args;
+            return inferExpr(tenv, { type: 'lambda', args: [one], body: { type: 'lambda', args: rest, body: expr.body } });
+        case 'app': {
+            if (expr.args.length === 1) {
+                const resultVar = newTypeVar('result');
+                let targetType = inferExpr(tenv, expr.target);
+                const argTenv = tenvApply(globalState.subst, tenv);
+                const argType = inferExpr(argTenv, expr.args[0]);
+                targetType = typeApply(globalState.subst, targetType);
+                unify(targetType, tfn(argType, resultVar));
+                return typeApply(globalState.subst, resultVar);
+            }
+            if (!expr.args.length) return inferExpr(tenv, expr.target);
+            const [one, ...rest] = expr.args;
+            return inferExpr(tenv, { type: 'app', target: { type: 'app', target: expr.target, args: [one] }, args: rest });
+        }
+        case 'let': {
+            if (expr.vbls.length === 1) throw new Error('no bindings in let');
+            if (expr.vbls.length > 1) {
+                const [one, ...more] = expr.vbls;
+                return inferExpr(tenv, { type: 'let', vbls: [one], body: { type: 'let', vbls: more, body: expr.body } });
+            }
+            const { pat, init } = expr.vbls[0];
+            if (pat.type === 'var') {
+                const valueType = inferExpr(tenv, init);
+                const appliedEnv = tenvApply(globalState.subst, tenv);
+                const scheme = generalize(appliedEnv, valueType);
+                const boundEnv = { ...tenv, scope: { ...tenv.scope, [pat.name]: scheme } };
+                return inferExpr(boundEnv, expr.body);
+            }
+            let [type, scope] = inferPattern(tenv, pat);
+            const valueType = inferExpr(tenv, init);
+            unify(type, valueType);
+            scope = scopeApply(globalState.subst, scope);
+            const boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
+            const bodyType = inferExpr(boundEnv, expr.body);
+            return bodyType;
+        }
+        case 'match':
+            throw new Error('not yet folks');
+    }
+};
+
+const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
+    switch (pat.type) {
+        case 'any':
+            return [newTypeVar('any'), {}];
+        case 'var': {
+            const v = newTypeVar(pat.name);
+            return [v, { [pat.name]: { vars: [], body: v } }];
+        }
+        case 'con': {
+            let [cargs, cres] = instantiateTcon(tenv, pat.name);
+            const subPatterns = pat.args.map((arg) => inferPattern(tenv, arg));
+            const argTypes = subPatterns.map((s) => s[0]);
+            const scopes = subPatterns.map((s) => s[1]);
+            argTypes.forEach((arg, i) => unify(arg, cargs[i]));
+            cres = typeApply(globalState.subst, cres);
+            const scope = scopes.reduce((a, b) => ({ ...a, ...b }));
+            return [cres, scope];
+        }
+
+        case 'str':
+            return [{ type: 'con', name: 'string' }, {}];
+        case 'prim':
+            return [{ type: 'con', name: pat.prim.type }, {}];
+    }
+};
+
+const instantiateTcon = (tenv: Tenv, name: string): [Type[], Type] => {
+    const con = tenv.constructors[name];
+    if (!con) throw new Error(`unknown type constructor`);
+    const subst = makeSubstForFree(con.free);
+    return [con.args.map((arg) => typeApply(subst, arg)), typeApply(subst, con.result)];
+};
