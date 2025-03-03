@@ -74,11 +74,11 @@ export const compileExpr = (expr: Expr): sourced => {
         case 'array':
             return { code: ['[', expr.items.map(compileExpr), ']'], src: expr.src };
         case 'call':
-            return { code: [compileExpr(expr.target), '(', expr.args.map((arg) => [compileExpr(arg), ',']), ')'], src: expr.src };
+            return { code: [maybeWrap(expr.target), '(', expr.args.map((arg) => [compileExpr(arg), ',']), ')'], src: expr.src };
         case 'attribute':
-            return { code: [compileExpr(expr.target), '.', { code: expr.attribute.text, src: { left: expr.attribute.loc } }], src: expr.src };
+            return { code: [maybeWrap(expr.target), '.', { code: expr.attribute.text, src: { left: expr.attribute.loc } }], src: expr.src };
         case 'index':
-            return { code: [compileExpr(expr.target), '[', compileExpr(expr.index), ']'], src: expr.src };
+            return { code: [maybeWrap(expr.target), '[', compileExpr(expr.index), ']'], src: expr.src };
         case 'arrow':
             return {
                 code: [
@@ -90,7 +90,7 @@ export const compileExpr = (expr: Expr): sourced => {
                 src: expr.src,
             };
         case 'new':
-            return { code: ['new ', compileExpr(expr.inner)], src: expr.src };
+            return { code: ['new ', maybeWrap(expr.inner)], src: expr.src };
         case 'bop':
             return { code: [maybeWrap(expr.left), ' ' + expr.op + ' ', maybeWrap(expr.right)], src: expr.src };
     }

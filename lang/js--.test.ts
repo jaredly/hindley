@@ -34,3 +34,23 @@ let y = 2;
 return y * (a + b);
 }`);
 });
+
+const fixtures: [string, any][] = [
+    ['return 2 + 3', 5],
+    ['return (() => 10)()', 10],
+    ['return Math.pow(2,3)', 8],
+];
+
+fixtures.forEach(([input, output]) => {
+    test(`eval ${input}`, () => {
+        const res = lex(js, input);
+        const rec = fromMap(res.root, res.nodes, (l) => ({ id: '', idx: l }));
+        const parsed = parser.parse(rec, undefined);
+        expect(parsed.result).toBeTruthy();
+        const sourced = compileStmt(parsed.result);
+        const raw = sourcedToString(sourced, 0, []);
+        const f = new Function(raw);
+        console.log(raw);
+        expect(f()).toEqual(output);
+    });
+});
