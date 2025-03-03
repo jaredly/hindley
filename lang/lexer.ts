@@ -262,7 +262,10 @@ export const lex = (config: Config, input: string) => {
             }
         }
     }
-    return { nodes, root };
+    if (nodes[root].children.length !== 1) {
+        throw new Error(`root must have 1 child`);
+    }
+    return { nodes, root: nodes[root].children[0] };
 };
 
 export const wrapKind = (key: string): ListKind<any> | void => {

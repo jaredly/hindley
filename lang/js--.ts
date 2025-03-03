@@ -1,8 +1,9 @@
 // import { js, TestParser } from '../keyboard/test-utils';
-import { Id, Loc, TextSpan } from './nodes';
+import { Id, Loc, NodeID, RecNode, TextSpan } from './nodes';
 import { Ctx, list, match, or, Rule, ref, tx, seq, kwd, group, id, star, Src, number, text, table, opt } from './parse-dsl';
 import { binops, Block, Expr, kwds, Stmt } from './js--types';
 import { mergeSrc, nodesSrc } from './ts-types';
+import { Config } from './lexer';
 
 const stmts: Record<string, Rule<Stmt>> = {
     for: tx(
@@ -119,7 +120,6 @@ const rules = {
         ),
         (ctx, src) => ({ type: 'block', contents: ctx.ref<(Stmt | true)[]>('contents').filter((x) => x !== true), src }),
     ),
-    // list('curly', star(ref('stmt'))),
     ...stmts,
     'expr..': tx<Expr>(
         seq(
@@ -185,34 +185,57 @@ export const ctx: Ctx = {
     meta: {},
 };
 
-// export const parser: TestParser = {
-//     config: {
-//         // punct: [],
-//         // so js's default is just 'everything for itself'
-//         // tight: [...'~`!@#$%^&*_+-=\\./?:'],
-//         // punct: '~`!@#$%^&*_+-=\\./?:',
-//         punct: ['.', '/', '~`!@#$%^&*+-=\\/?:><'],
-//         space: ' ',
-//         sep: ',;\n',
-//         tableCol: ',:',
-//         tableRow: ';\n',
-//         tableNew: ':',
-//         xml: true,
-//     },
-//     spans: () => [],
-//     parse(node, cursor) {
-//         const c = {
-//             ...ctx,
-//             meta: {},
-//             autocomplete: cursor != null ? { loc: cursor, concrete: [], kinds: [] } : undefined,
-//         };
-//         const res = match({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: [] }, 0);
+export type MatchError =
+    | {
+          type: 'mismatch' | 'extra';
+          // matcher: Matcher<any>;
+          node: RecNode;
+      }
+    | {
+          type: 'missing';
+          //   matcher: Matcher<any>;
+          at: number;
+          parent: Loc;
+          sub?: { type: 'text'; index: number } | { type: 'table'; row: number } | { type: 'xml'; which: 'tag' | 'attributes' };
+      };
 
-//         return {
-//             result: res?.value,
-//             ctx: { meta: c.meta },
-//             bads: [],
-//             goods: [],
-//         };
-//     },
-// };
+export type ParseResult<T> = {
+    result: T | undefined;
+    goods: RecNode[];
+    bads: MatchError[];
+    ctx: Pick<Ctx, 'autocomplete' | 'meta'>;
+};
+
+export type TestParser = {
+    config: Config;
+    parse(node: RecNode, cursor?: NodeID): ParseResult<any>;
+    spans(ast: any): Src[];
+};
+
+export const parser: TestParser = {
+    config: {
+        punct: ['.', '/', '~`!@#$%^&*+-=\\/?:><'],
+        space: ' ',
+        sep: ',;\n',
+        tableCol: ',:',
+        tableRow: ';\n',
+        tableNew: ':',
+        xml: true,
+    },
+    spans: () => [],
+    parse(node, cursor) {
+        const c = {
+            ...ctx,
+            meta: {},
+            autocomplete: cursor != null ? { loc: cursor, concrete: [], kinds: [] } : undefined,
+        };
+        const res = match({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: { id: '', idx: '' } }, 0);
+
+        return {
+            result: res?.value,
+            ctx: { meta: c.meta },
+            bads: [],
+            goods: [],
+        };
+    },
+};

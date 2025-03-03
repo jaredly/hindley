@@ -5,23 +5,23 @@ import { fromMap, fromRec, shape } from './nodes';
 test('lex', () => {
     const res = lex(js, 'hello+folks');
     const rec = fromMap(res.root, res.nodes, (l) => ({ id: '', idx: l }));
-    expect(shape(rec)).toEqual('(list[smooshed](id(hello/0) id(+/3) id(folks/0)))');
+    expect(shape(rec)).toEqual('list[smooshed](id(hello/0) id(+/3) id(folks/0))');
 });
 
 test('lex2', () => {
     const res = lex(js, '(one+two and,three,four)');
     const rec = fromMap(res.root, res.nodes, (l) => ({ id: '', idx: l }));
-    expect(shape(rec)).toEqual('((list[spaced](list[smooshed](id(one/0) id(+/3) id(two/0)) id(and/0)) id(three/0) id(four/0)))');
+    expect(shape(rec)).toEqual('(list[spaced](list[smooshed](id(one/0) id(+/3) id(two/0)) id(and/0)) id(three/0) id(four/0))');
 });
 
 test('string', () => {
     const res = lex(js, '"A string"');
     const rec = fromMap(res.root, res.nodes, (l) => ({ id: '', idx: l }));
-    expect(shape(rec)).toEqual('(text(A string))');
+    expect(shape(rec)).toEqual('text(A string)');
 });
 
 test('string', () => {
     const res = lex(js, '"A string ${with embed} and such"');
     const rec = fromMap(res.root, res.nodes, (l) => ({ id: '', idx: l }));
-    expect(shape(rec)).toEqual('(text(A string |${list[spaced](id(with/0) id(embed/0))}| and such))');
+    expect(shape(rec)).toEqual('text(A string |${list[spaced](id(with/0) id(embed/0))}| and such)');
 });
