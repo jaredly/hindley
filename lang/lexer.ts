@@ -159,6 +159,9 @@ export const lex = (config: Config, input: string) => {
         }
 
         if (parent.type === 'table') {
+            const last = parent.rows[parent.rows.length - 1];
+            if (!last || !last.length) return;
+            if (last[last.length - 1] === '') return;
             throw new Error('not yet');
         }
 
@@ -198,6 +201,7 @@ export const lex = (config: Config, input: string) => {
         }
 
         if (parent.type === 'table') {
+            if (parent.rows[parent.rows.length - 1]?.length === 0) return;
             parent.rows.push([]);
             return;
         }
