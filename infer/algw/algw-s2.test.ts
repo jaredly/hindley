@@ -11,6 +11,9 @@ const tests: [string, string][] = [
     [`{let (a,b) = (2,3);a}`, 'int'],
     [`(x) => {let (a,b) = x;a}`, `((a:1, b:2)) => a:1`],
     [`{let id = (x) => x;(id(2),id(true))}`, `(int, bool)`],
+    [`{let a = 2;let a = true;a}`, 'bool'],
+    [`"hi"`, 'string'],
+    [`(x) => {let (a,_) = x;a(2)}`, '(((int) => result:5, b:2)) => result:5'],
 ];
 
 const builtinEnv: Tenv = {
@@ -43,6 +46,7 @@ builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(ta
 tests.forEach(([input, output]) => {
     test(input, () => {
         const cst = lex(js, input);
+        // console.log(JSON.stringify(cst, null, 2));
         const node = fromMap(cst.roots[0], cst.nodes, (idx) => ({ id: '', idx }));
         // console.log(JSON.stringify(node, null, 2));
         const parsed = parser.parse(node);
