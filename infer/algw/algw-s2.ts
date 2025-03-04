@@ -1,6 +1,5 @@
 // Based on https://compiler.jaredforsyth.com/algw-s2
 
-import { Stmt, Expr as JSExpr } from '../../lang/js--types';
 import { Src } from '../../lang/parse-dsl';
 
 export type Prim = { type: 'int'; value: number } | { type: 'bool'; value: boolean };
@@ -311,8 +310,24 @@ const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             const bodyType = inferExpr(boundEnv, expr.body);
             return bodyType;
         }
-        case 'match':
-            throw new Error('not yet folks');
+        case 'match': {
+            let targetType = inferExpr(tenv, expr.target);
+            let resultType = newTypeVar('match result');
+            let midTarget = targetType;
+            for (let kase of expr.cases) {
+                let [type, scope] = inferPattern(tenv, kase.pat);
+                unify(type, midTarget);
+                scope = scopeApply(globalState.subst, scope);
+                const bodyType = inferExpr({ ...tenv, scope: { ...tenv.scope, ...scope } }, kase.body);
+                unify(typeApply(globalState.subst, resultType), bodyType);
+                midTarget = typeApply(globalState.subst, midTarget);
+                resultType = typeApply(globalState.subst, resultType);
+            }
+            // TODO: check exhaustiveness
+            // checkExhaustiveness(tenv, typeApply(globalState.subst, targetType), expr.cases.map(k => k.pat))
+            return resultType;
+        }
+        // throw new Error('not yet folks');
     }
 };
 
