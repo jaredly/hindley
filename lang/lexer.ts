@@ -2,7 +2,7 @@
  * Lex text into the CST
  */
 
-import { Collection, List, ListKind, NodeID, Nodes, NodeT, RecCollection, RecList, RecNodeT, Text } from './nodes';
+import { Collection, List, ListKind, NodeID, Nodes, NodeT, RecCollection, RecList, RecNodeT, Table, Text } from './nodes';
 
 export const lisp = {
     punct: [';', '.', '@', '=#+'],
@@ -72,7 +72,7 @@ export const lex = (config: Config, input: string) => {
     path.push(root);
     nodes[root] = { type: 'list', children: [], kind: 'round', loc: root };
 
-    const getParent = () => nodes[path[path.length - 1]] as List<NodeID> | Text<NodeID>;
+    const getParent = () => nodes[path[path.length - 1]] as Collection<NodeID> | Text<NodeID>;
 
     const add = (node: NodeT<NodeID>) => {
         nodes[node.loc] = node;
@@ -89,6 +89,28 @@ export const lex = (config: Config, input: string) => {
             const smoosh: List<NodeID> = { type: 'list', kind: 'smooshed', children: [prev, node.loc], loc: ts() };
             smap[smoosh.loc] = { start: smap[prev]?.start ?? -1, end: smap[node.loc].end };
             last.item = smoosh.loc;
+            nodes[smoosh.loc] = smoosh;
+            path.push(smoosh.loc);
+            return;
+        }
+        if (parent.type === 'table') {
+            if (parent.rows.length === 0) {
+                parent.rows.push([node.loc]);
+                return;
+            }
+            const last = parent.rows[parent.rows.length - 1];
+            if (last.length === 0) {
+                last.push(node.loc);
+                return;
+            }
+            const prev = last[last.length - 1];
+            if (prev === '') {
+                last[last.length - 1] = node.loc;
+                return;
+            }
+            const smoosh: List<NodeID> = { type: 'list', kind: 'smooshed', children: [prev, node.loc], loc: ts() };
+            smap[smoosh.loc] = { start: smap[prev].start, end: smap[node.loc].end };
+            last[last.length - 1] = smoosh.loc;
             nodes[smoosh.loc] = smoosh;
             path.push(smoosh.loc);
             return;
@@ -136,6 +158,10 @@ export const lex = (config: Config, input: string) => {
             return;
         }
 
+        if (parent.type === 'table') {
+            throw new Error('not yet');
+        }
+
         if (parent.kind === 'spaced') {
             parent.children.push('');
         } else {
@@ -169,6 +195,11 @@ export const lex = (config: Config, input: string) => {
             if (parent.type === 'text') {
                 throw new Error(`cant sep in text embed`);
             }
+        }
+
+        if (parent.type === 'table') {
+            parent.rows.push([]);
+            return;
         }
 
         parent.children.push('');
@@ -205,9 +236,44 @@ export const lex = (config: Config, input: string) => {
         if (wrap) {
             const loc: NodeID = ts();
             smap[loc] = { start: i, end: i };
-            add({ type: 'list', kind: wrap, children: [], loc });
+            if (input[i + 1] === config.tableNew) {
+                i++;
+                add({ type: 'table', kind: wrap, rows: [], loc });
+            } else {
+                add({ type: 'list', kind: wrap, children: [], loc });
+            }
             path.push(loc);
             continue;
+        }
+
+        const findTable = () => {
+            for (let i = path.length - 1; i >= 0; i--) {
+                const node = nodes[path[i]];
+                if (node.type === 'table') {
+                    return node.loc;
+                }
+                if (node.type === 'list' && (node.kind === 'smooshed' || node.kind === 'spaced')) {
+                    continue;
+                }
+                return null;
+            }
+        };
+
+        if (char === config.tableNew) {
+            const ptable = findTable();
+            if (ptable != null) {
+                const table = nodes[ptable] as Table<NodeID>;
+                if (closerKind(input[i + 1]) === table.kind) {
+                    const at = path.indexOf(ptable);
+                    while (path.length > at) {
+                        path.pop();
+                        smap[parent.loc].end = i;
+                        parent = getParent();
+                    }
+                    i++;
+                    continue;
+                }
+            }
         }
 
         const close = closerKind(char);
@@ -252,6 +318,14 @@ export const lex = (config: Config, input: string) => {
                     const last = parent.spans[parent.spans.length - 1];
                     if (last.type !== 'embed') throw new Error('shoulndt get here');
                     node = nodes[last.item];
+                } else if (parent.type === 'table') {
+                    if (!parent.rows.length) {
+                        node = null;
+                    } else {
+                        const row = parent.rows[parent.rows.length - 1];
+                        const last = row[row.length - 1];
+                        node = nodes[last];
+                    }
                 } else {
                     const last = parent.children[parent.children.length - 1];
                     node = nodes[last];
@@ -274,7 +348,7 @@ export const lex = (config: Config, input: string) => {
     return { nodes, roots: nodes[root].children };
 };
 
-export const wrapKind = (key: string): ListKind<any> | void => {
+export const wrapKind = (key: string): 'round' | 'curly' | 'square' | void => {
     switch (key) {
         case '(':
             return 'round';

@@ -8,6 +8,12 @@ test('eat white', () => {
     expect(shape(rec)).toEqual('(id(1/0) id(2/0))');
 });
 
+test('table', () => {
+    const res = lex(js, '(:1;2:)');
+    const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));
+    expect(shape(rec)).toEqual('(:id(1/0);id(2/0):)');
+});
+
 test('eat white 2', () => {
     const res = lex(js, '(1, 2      3)');
     const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));

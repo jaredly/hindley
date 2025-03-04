@@ -1,4 +1,14 @@
 
+# Full Algw local
+
+- [x] algw-s2 ported to ts
+- [x] most of parsing is great
+- [ ] lexer needs to handle tables
+- [ ] parser needs to do switch and tables
+
+
+#
+
 Lexer
 - [x] ids
 - [x] basic lists
