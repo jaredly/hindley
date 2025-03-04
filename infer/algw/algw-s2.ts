@@ -75,14 +75,14 @@ export type Tenv = {
     aliases: Record<string, { args: string[]; body: Type }>;
 };
 
-const merge = (...ones: string[][]) => {
+export const merge = (...ones: string[][]) => {
     const seen: Record<string, true> = {};
     return ones.flat().filter((t) => (seen[t] ? false : (seen[t] = true)));
     // one.forEach(s => seen[s] = true)
     // return one.concat(two.filter(t => seen[t] ? false : (seen[t] = true)))
 };
 
-const typeFree = (type: Type): string[] => {
+export const typeFree = (type: Type): string[] => {
     switch (type.type) {
         case 'var':
             return [type.name];
@@ -93,13 +93,13 @@ const typeFree = (type: Type): string[] => {
     }
 };
 
-const schemeFree = (scheme: Scheme) => typeFree(scheme.body).filter((t) => !scheme.vars.includes(t));
+export const schemeFree = (scheme: Scheme) => typeFree(scheme.body).filter((t) => !scheme.vars.includes(t));
 
-const tenvFree = (tenv: Tenv) => merge(...Object.values(tenv.scope).map(schemeFree));
+export const tenvFree = (tenv: Tenv) => merge(...Object.values(tenv.scope).map(schemeFree));
 
-type Subst = Record<string, Type>;
+export type Subst = Record<string, Type>;
 
-const typeApply = (subst: Subst, type: Type): Type => {
+export const typeApply = (subst: Subst, type: Type): Type => {
     switch (type.type) {
         case 'var':
             return subst[type.name] ?? type;
@@ -110,7 +110,7 @@ const typeApply = (subst: Subst, type: Type): Type => {
     }
 };
 
-const mapWithout = <T>(map: Record<string, T>, names: string[]): Record<string, T> => {
+export const mapWithout = <T>(map: Record<string, T>, names: string[]): Record<string, T> => {
     const res: Record<string, T> = {};
     Object.keys(map).forEach((k) => {
         if (!names.includes(k)) {
@@ -120,14 +120,14 @@ const mapWithout = <T>(map: Record<string, T>, names: string[]): Record<string, 
     return res;
 };
 
-const schemeApply = (subst: Subst, scheme: Scheme): Scheme => {
+export const schemeApply = (subst: Subst, scheme: Scheme): Scheme => {
     return { vars: scheme.vars, body: typeApply(mapWithout(subst, scheme.vars), scheme.body) };
 };
 
-const tenvApply = (subst: Subst, tenv: Tenv): Tenv => {
+export const tenvApply = (subst: Subst, tenv: Tenv): Tenv => {
     return { ...tenv, scope: scopeApply(subst, tenv.scope) };
 };
-const scopeApply = (subst: Subst, scope: Tenv['scope']) => {
+export const scopeApply = (subst: Subst, scope: Tenv['scope']) => {
     const res: Tenv['scope'] = {};
     Object.keys(scope).forEach((k) => {
         res[k] = schemeApply(subst, scope[k]);
@@ -135,7 +135,7 @@ const scopeApply = (subst: Subst, scope: Tenv['scope']) => {
     return res;
 };
 
-const mapMap = <T>(f: (arg: T) => T, map: Record<string, T>): Record<string, T> => {
+export const mapMap = <T>(f: (arg: T) => T, map: Record<string, T>): Record<string, T> => {
     const res: Record<string, T> = {};
     Object.keys(map).forEach((k) => {
         res[k] = f(map[k]);
@@ -143,14 +143,14 @@ const mapMap = <T>(f: (arg: T) => T, map: Record<string, T>): Record<string, T> 
     return res;
 };
 
-const composeSubst = (newSubst: Subst, oldSubst: Subst) => {
+export const composeSubst = (newSubst: Subst, oldSubst: Subst) => {
     return {
         ...mapMap((t) => typeApply(newSubst, t), oldSubst),
         ...newSubst,
     };
 };
 
-const generalize = (tenv: Tenv, t: Type): Scheme => {
+export const generalize = (tenv: Tenv, t: Type): Scheme => {
     const free = tenvFree(tenv);
     return {
         vars: typeFree(t).filter((n) => !free.includes(n)),
@@ -166,11 +166,11 @@ export const resetState = () => {
     globalState.subst = {};
 };
 
-const newTypeVar = (name: string): Type => {
+export const newTypeVar = (name: string): Extract<Type, { type: 'var' }> => {
     return { type: 'var', name: `${name}:${globalState.nextId++}` };
 };
 
-const makeSubstForFree = (vars: string[]) => {
+export const makeSubstForFree = (vars: string[]) => {
     const mapping: Subst = {};
     vars.forEach((id) => {
         mapping[id] = newTypeVar(id);
@@ -178,16 +178,16 @@ const makeSubstForFree = (vars: string[]) => {
     return mapping;
 };
 
-const instantiate = (scheme: Scheme) => {
+export const instantiate = (scheme: Scheme) => {
     const subst = makeSubstForFree(scheme.vars);
     return typeApply(subst, scheme.body);
 };
 
-const addSubst = (subst: Subst) => {
+export const addSubst = (subst: Subst) => {
     globalState.subst = composeSubst(subst, globalState.subst);
 };
 
-const varBind = (name: string, type: Type) => {
+export const varBind = (name: string, type: Type) => {
     if (type.type === 'var') {
         if (type.name === name) {
             return;
@@ -231,7 +231,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr) => {
 export const tfn = (arg: Type, body: Type): Type => ({ type: 'app', target: { type: 'app', target: { type: 'con', name: '->' }, arg }, arg: body });
 export const tfns = (args: Type[], body: Type): Type => args.reduceRight((res, arg) => tfn(arg, res), body);
 
-const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
+export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
     switch (expr.type) {
         case 'prim':
             return { type: 'con', name: expr.prim.type };
@@ -244,7 +244,7 @@ const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
         case 'lambda':
             if (expr.args.length === 1) {
                 if (expr.args[0].type === 'var') {
-                    let argType = newTypeVar(expr.args[0].name);
+                    let argType: Type = newTypeVar(expr.args[0].name);
                     const boundEnv: Tenv = { ...tenv, scope: { ...tenv.scope, [expr.args[0].name]: { vars: [], body: argType } } };
                     const bodyType = inferExpr(boundEnv, expr.body);
                     argType = typeApply(globalState.subst, argType);
@@ -312,7 +312,7 @@ const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
         }
         case 'match': {
             let targetType = inferExpr(tenv, expr.target);
-            let resultType = newTypeVar('match result');
+            let resultType: Type = newTypeVar('match result');
             let midTarget = targetType;
             for (let kase of expr.cases) {
                 let [type, scope] = inferPattern(tenv, kase.pat);
