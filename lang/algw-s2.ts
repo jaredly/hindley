@@ -118,11 +118,37 @@ const rules = {
         ref('block'),
         // tx(kwd('return'), (_, src) => ({ type: 'return', value: null, src })),
         // kwd('continue'),
-        tx(ref('expr', 'expr'), (ctx, src) => ({
-            type: 'expr',
-            expr: ctx.ref<Expr>('expr'),
+        tx(ref('expr', 'expr'), (ctx, src) => ctx.ref<Expr>('expr')),
+    ),
+    pat: or<Pat>(
+        tx(kwd('_'), (ctx, src) => ({ type: 'any', src })),
+        // tx(number, (ctx, src) => ({type: 'any', src})),
+        tx(group('value', number), (ctx, src) => ({ type: 'prim', prim: { type: 'int', value: ctx.ref<number>('value') }, src })),
+        tx(group('value', or(kwd('true'), kwd('false'))), (ctx, src) => ({
+            type: 'prim',
+            prim: { type: 'bool', value: ctx.ref<Id<Loc>>('value').text === 'true' },
             src,
         })),
+        tx(group('id', id(null)), (ctx, src) => ({ type: 'var', name: ctx.ref<Id<Loc>>('id').text, src })),
+        tx(list('smooshed', seq(group('name', id(null)), list('round', group('args', star(ref('pat')))))), (ctx, src) => ({
+            type: 'con',
+            name: ctx.ref<Id<Loc>>('name').text,
+            args: ctx.ref<Pat[]>('args'),
+            src,
+        })),
+        tx<Pat>(list('round', group('items', star(ref('pat')))), (ctx, src) => {
+            const items = ctx.ref<Pat[]>('items');
+            if (items.length === 0) {
+                return { type: 'var', name: 'null-tuple', src };
+            }
+            if (items.length === 1) return items[0];
+            return items.reduceRight((right, left) => ({
+                type: 'con',
+                name: ',',
+                args: [left, right],
+                src,
+            }));
+        }),
     ),
     comment: list('smooshed', seq(kwd('//', 'comment'), { type: 'any' })),
     block: tx<Expr>(
@@ -141,20 +167,23 @@ const rules = {
         (ctx, src) => {
             let result = null as null | Expr;
             const items = ctx.ref<(BareLet | Expr | true)[]>('contents').filter((x) => x !== true);
+            if (!items.length) {
+                return { type: 'var', name: 'null', src };
+            }
             while (items.length) {
                 const last = items.pop()!;
                 if (last.type === 'bare-let') {
                     result = {
                         type: 'let',
                         vbls: [{ pat: last.pat, init: last.init }],
-                        body: result ?? { type: 'var', name: 'null', src: last.src },
+                        body: result ?? { type: 'var', name: 'null-block', src: last.src },
                         src: last.src,
                     };
                 } else {
                     result = result ?? last;
                 }
             }
-            return result ?? { type: 'var', name: 'null', src };
+            return result ?? { type: 'var', name: 'empty-block', src };
         },
     ),
     ...stmts,
@@ -188,7 +217,7 @@ const rules = {
     ),
     expr: or(...Object.keys(exprs).map((name) => ref(name)), list('spaced', ref('expr '))),
     ...exprs,
-    // bop: or(...binops.map((m) => kwd(m, 'bop'))),
+    bop: or(...binops.map((m) => kwd(m, 'bop'))),
     'expr ': or(
         tx<Expr>(seq(list('round', group('args', star(ref('pat')))), kwd('=>'), group('body', or(ref('block'), ref('expr ')))), (ctx, src) => ({
             type: 'lambda',
@@ -242,13 +271,13 @@ export type ParseResult<T> = {
     ctx: Pick<Ctx, 'autocomplete' | 'meta'>;
 };
 
-export type TestParser = {
+export type TestParser<T> = {
     config: Config;
-    parse(node: RecNode, cursor?: NodeID): ParseResult<any>;
+    parse(node: RecNode, cursor?: NodeID): ParseResult<T>;
     spans(ast: any): Src[];
 };
 
-export const parser: TestParser = {
+export const parser: TestParser<Expr> = {
     config: {
         punct: ['.', '/', '~`!@#$%^&*+-=\\/?:><'],
         space: ' ',
@@ -265,7 +294,7 @@ export const parser: TestParser = {
             meta: {},
             autocomplete: cursor != null ? { loc: cursor, concrete: [], kinds: [] } : undefined,
         };
-        const res = match({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: { id: '', idx: '' } }, 0);
+        const res = match<Expr>({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: { id: '', idx: '' } }, 0);
 
         return {
             result: res?.value,

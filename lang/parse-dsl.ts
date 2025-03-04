@@ -136,7 +136,7 @@ export const show = (matcher: Rule<any>): string => {
     }
 };
 
-export const match = (rule: Rule<any>, ctx: Ctx, parent: MatchParent, at: number): undefined | null | Result => {
+export const match = <T>(rule: Rule<T>, ctx: Ctx, parent: MatchParent, at: number): undefined | null | Result => {
     if (ctx.rules.comment) {
         const { comment, ...without } = ctx.rules;
         const cm = match_(ctx.rules.comment, { ...ctx, rules: without }, parent, at);

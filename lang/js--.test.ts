@@ -18,7 +18,7 @@ inputs.forEach((source) => {
     test('parse ' + source, () => {
         const res = lex(js, source);
         const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));
-        const parsed = parser.parse(rec, undefined);
+        const parsed = parser.parse(rec);
         expect(parsed.result).toBeTruthy();
     });
 });

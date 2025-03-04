@@ -9,6 +9,7 @@ export type Top =
     | { type: 'expr'; expr: Expr }
     | { type: 'deftype'; name: string; args: string[]; constructors: { name: string; args: Type[] }[] }
     | { type: 'typealias'; name: string; args: string[]; alias: Type };
+
 export type Expr =
     | { type: 'prim'; prim: Prim; src: Src }
     | { type: 'var'; name: string; src: Src }
@@ -24,6 +25,29 @@ export type Pat =
     | { type: 'str'; value: string; src: Src }
     | { type: 'prim'; prim: Prim; src: Src };
 export type Type = { type: 'var'; name: string } | { type: 'app'; target: Type; arg: Type } | { type: 'con'; name: string };
+
+export const typeToString = (t: Type): string => {
+    switch (t.type) {
+        case 'var':
+            return t.name;
+        case 'app':
+            const args: Type[] = [t.arg];
+            let target = t.target;
+            while (target.type === 'app') {
+                args.unshift(target.arg);
+                target = target.target;
+            }
+            if (target.type === 'con' && target.name === ',') {
+                return `(${args.map(typeToString).join(', ')})`;
+            }
+            if (target.type === 'con' && target.name === '->' && args.length === 2) {
+                return `(${typeToString(args[0])}) => ${typeToString(args[1])}`;
+            }
+            return `${typeToString(target)}(${args.map(typeToString).join(', ')})`;
+        case 'con':
+            return t.name;
+    }
+};
 
 const typeEqual = (one: Type, two: Type): boolean => {
     if (one.type !== two.type) return false;
@@ -43,9 +67,9 @@ const typeEqual = (one: Type, two: Type): boolean => {
     }
 };
 
-type Scheme = { vars: string[]; body: Type };
+export type Scheme = { vars: string[]; body: Type };
 
-type Tenv = {
+export type Tenv = {
     scope: Record<string, Scheme>;
     constructors: Record<string, { free: string[]; args: Type[]; result: Type }>;
     types: Record<string, { free: number; constructors: string[] }>;
@@ -138,6 +162,10 @@ const generalize = (tenv: Tenv, t: Type): Scheme => {
 type State = { nextId: number; subst: Subst };
 
 let globalState: State = { nextId: 0, subst: {} };
+export const resetState = () => {
+    globalState.nextId = 0;
+    globalState.subst = {};
+};
 
 const newTypeVar = (name: string): Type => {
     return { type: 'var', name: `${name}:${globalState.nextId++}` };
@@ -201,8 +229,8 @@ export const inferExpr = (tenv: Tenv, expr: Expr) => {
     return type;
 };
 
-const tfn = (arg: Type, body: Type): Type => ({ type: 'app', target: { type: 'app', target: { type: 'con', name: '->' }, arg }, arg: body });
-const tfns = (args: Type[], body: Type): Type => args.reduceRight((res, arg) => tfn(arg, res), body);
+export const tfn = (arg: Type, body: Type): Type => ({ type: 'app', target: { type: 'app', target: { type: 'con', name: '->' }, arg }, arg: body });
+export const tfns = (args: Type[], body: Type): Type => args.reduceRight((res, arg) => tfn(arg, res), body);
 
 const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
     switch (expr.type) {
@@ -257,7 +285,7 @@ const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             });
         }
         case 'let': {
-            if (expr.vbls.length === 1) throw new Error('no bindings in let');
+            if (expr.vbls.length === 0) throw new Error('no bindings in let');
             if (expr.vbls.length > 1) {
                 const [one, ...more] = expr.vbls;
                 return inferExpr(tenv, {
@@ -316,7 +344,7 @@ const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
 
 const instantiateTcon = (tenv: Tenv, name: string): [Type[], Type] => {
     const con = tenv.constructors[name];
-    if (!con) throw new Error(`unknown type constructor`);
+    if (!con) throw new Error(`unknown type constructor: ${name}`);
     const subst = makeSubstForFree(con.free);
     return [con.args.map((arg) => typeApply(subst, arg)), typeApply(subst, con.result)];
 };
