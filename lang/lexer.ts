@@ -276,6 +276,16 @@ export const lex = (config: Config, input: string) => {
             }
         }
 
+        if (config.tableCol.includes(char)) {
+            const ptable = findTable();
+            if (ptable != null) {
+                const node = nodes[ptable] as Table<NodeID>;
+                if (!node.rows.length) throw new Error('no rows');
+                node.rows[node.rows.length - 1].push('');
+                continue;
+            }
+        }
+
         const close = closerKind(char);
         if (close) {
             while (parent.type === 'list' && (parent.kind === 'smooshed' || parent.kind === 'spaced')) {
