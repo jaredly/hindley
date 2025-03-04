@@ -6,14 +6,14 @@ import { inferExpr, resetState, Scheme, Tenv, tfns, Type, typeToString } from '.
 
 const tests: [string, string][] = [
     [`10`, `int`],
-    [`{let x = 10;x}`, 'int'],
-    [`(1,2)`, '(int, int)'],
-    [`{let (a,b) = (2,3);a}`, 'int'],
-    [`(x) => {let (a,b) = x;a}`, `((a:1, b:2)) => a:1`],
-    [`{let id = (x) => x;(id(2),id(true))}`, `(int, bool)`],
-    [`{let a = 2;let a = true;a}`, 'bool'],
+    [`{let x = 10; x}`, 'int'],
+    [`(1, 2)`, '(int, int)'],
+    [`{let (a, b) = (2, 3); a}`, 'int'],
+    [`(x) => {let (a, b) = x; a}`, `((a:1, b:2)) => a:1`],
+    [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
+    [`{let a = 2; let a = true; a}`, 'bool'],
     [`"hi"`, 'string'],
-    [`(x) => {let (a,_) = x;a(2)}`, '(((int) => result:5, b:2)) => result:5'],
+    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => result:5, b:2)) => result:5'],
 ];
 
 const builtinEnv: Tenv = {

@@ -2,6 +2,18 @@ import { test, expect } from 'bun:test';
 import { js, lex } from './lexer';
 import { fromMap, fromRec, shape } from './nodes';
 
+test('eat white', () => {
+    const res = lex(js, '(1, 2)');
+    const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));
+    expect(shape(rec)).toEqual('(id(1/0) id(2/0))');
+});
+
+test('eat white 2', () => {
+    const res = lex(js, '(1, 2      3)');
+    const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));
+    expect(shape(rec)).toEqual('(id(1/0) list[spaced](id(2/0) id(3/0)))');
+});
+
 test('lex', () => {
     const res = lex(js, 'hello+folks');
     const rec = fromMap(res.roots[0], res.nodes, (l) => ({ id: '', idx: l }));

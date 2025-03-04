@@ -145,11 +145,14 @@ export const lex = (config: Config, input: string) => {
                 nodes[prev] = { type: 'id', text: '', loc: prev };
                 smap[prev] = { start: i, end: i };
             }
+            if (prev === '') {
+                return;
+            }
             const loc: NodeID = ts();
             smap[loc] = { start: i + 1, end: i + 1 };
             parent.children[parent.children.length - 1] = loc;
             path.push(loc);
-            nodes[loc] = { type: 'list', kind: 'spaced', children: [prev, ''], loc };
+            nodes[loc] = { type: 'list', kind: 'spaced', children: prev === '' ? [prev] : [prev, ''], loc };
         }
     };
 
@@ -262,6 +265,11 @@ export const lex = (config: Config, input: string) => {
             }
         }
     }
+    Object.values(nodes).forEach((node) => {
+        if (node.type === 'list') {
+            node.children = node.children.filter((c) => c !== '');
+        }
+    });
 
     return { nodes, roots: nodes[root].children };
 };
