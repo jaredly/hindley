@@ -1,6 +1,6 @@
 import { composeSubst, Expr, makeSubstForFree, merge, newTypeVar, Pat, Subst, tfn, Type, typeApply, typeFree } from '../algw/algw-s2';
 
-type Scheme = { vars: string[]; constraint: Constraint; body: Type };
+export type Scheme = { vars: string[]; constraint: Constraint; body: Type };
 
 export type Tenv = {
     scope: Record<string, Scheme>;
@@ -113,7 +113,7 @@ const withScope = (inner: Constraint, scope: Subst) => {
     return inner;
 };
 
-const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
+export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
     switch (expr.type) {
         case 'prim':
             return { type: 'app', name: '=', args: [{ type: 'con', name: expr.prim.type }, type] };
@@ -187,7 +187,7 @@ const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             const ctarget = inferExpr(tenv, expr.target, ttarget);
             const ccons = expr.cases.map(({ pat, body }): Constraint => {
                 const [patCon, vbls, scope] = inferPat(tenv, pat, ttarget);
-                const expCon = inferExpr(tenv, expr, tres);
+                const expCon = inferExpr(tenv, body, tres);
                 return { type: 'exists', vbls: vbls, body: withScope(ands([patCon, expCon]), scope) };
             });
             return {
