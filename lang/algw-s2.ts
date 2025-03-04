@@ -225,11 +225,25 @@ const rules = {
             body: ctx.ref<Expr>('body'),
             src,
         })),
-        // tx<Expr>(seq(kwd('new'), ref('expr', 'inner')), (ctx, src) => ({
-        //     type: 'new',
-        //     inner: ctx.ref<Expr>('inner'),
-        //     src,
-        // })),
+        tx<Expr>(
+            seq(
+                kwd('switch'),
+                list('round', ref('expr', 'target')),
+                group(
+                    'cases',
+                    table(
+                        'curly',
+                        tx(seq(ref('pat', 'pat'), ref('stmt', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Expr>('body') })),
+                    ),
+                ),
+            ),
+            (ctx, src) => ({
+                type: 'match',
+                target: ctx.ref<Expr>('target'),
+                cases: ctx.ref<{ pat: Pat; body: Expr }[]>('cases'),
+                src,
+            }),
+        ),
         tx<Expr>(seq(ref('expr', 'left'), ref('bop', 'op'), ref('expr', 'right')), (ctx, src) => ({
             type: 'app',
             target: { type: 'var', name: ctx.ref<Id<Loc>>('op').text, src },
