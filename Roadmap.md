@@ -1,5 +1,11 @@
 
 
+How to make HMX make more sense?
+
+- [x] the `bool` constraint is dumb
+- [x] app should just be eq
+
+
 # For the walkthrough
 
 - first: highlight each ~node in sequence to indicate that we're doing a single pass

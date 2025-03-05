@@ -305,8 +305,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             if (pat.type === 'var') {
                 const valueType = inferExpr(tenv, init);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
-                const scheme = generalize(appliedEnv, valueType);
-                const boundEnv = { ...tenv, scope: { ...tenv.scope, [pat.name]: scheme } };
+                const boundEnv = { ...tenv, scope: { ...tenv.scope, [pat.name]: generalize(appliedEnv, valueType) } };
                 return inferExpr(boundEnv, expr.body);
             }
             let [type, scope] = inferPattern(tenv, pat);

@@ -11,8 +11,8 @@ const builtinEnv: Tenv = {
     constructors: {},
     scope: {},
 };
-const concrete = (body: Type): Scheme => ({ vars: [], constraint: { type: 'bool', value: true }, body });
-const generic = (vars: string[], body: Type): Scheme => ({ vars, constraint: { type: 'bool', value: true }, body });
+const concrete = (body: Type): Scheme => ({ vars: [], constraint: null, body });
+const generic = (vars: string[], body: Type): Scheme => ({ vars, constraint: null, body });
 const tint: Type = { type: 'con', name: 'int' };
 const tbool: Type = { type: 'con', name: 'bool' };
 const k: Type = { type: 'var', name: 'k' };
@@ -52,6 +52,7 @@ const tests: [string, string][] = [
     [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
     [`(x) => x`, `(lambda-body:2) => lambda-body:2`],
     [`{let id = (x) => x; id(true)}`, `bool`],
+    ['(a, b) => (a, b)', '(fn-arg:6) => (fn-arg:5) => (fn-arg:6, fn-arg:5)'],
 ];
 
 tests.forEach(([input, output]) => {
