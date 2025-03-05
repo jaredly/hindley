@@ -143,20 +143,20 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
         case 'str':
             return { type: 'eq', left: { type: 'con', name: 'string' }, right: type };
         case 'lambda':
+            let body = expr.body;
+            const [arg, ...rest] = expr.args;
             if (expr.args.length > 1) {
-                const [one, ...rest] = expr.args;
-                return inferExpr(tenv, { ...expr, args: [one], body: { ...expr, args: rest } }, type);
+                body = { ...expr, args: rest };
             }
-            const arg = expr.args[0];
             if (arg.type === 'var') {
                 const x1 = newTypeVar('arg-' + arg.name);
                 const x2 = newTypeVar('lambda-body');
-                const body = inferExpr(tenv, expr.body, x2);
+                const ibody = inferExpr(tenv, body, x2);
                 return {
                     type: 'exists',
                     vbls: [x1.name, x2.name],
                     body: ands([
-                        { type: 'def', name: arg.name, scheme: { vars: [], constraint: null, body: x1 }, body },
+                        { type: 'def', name: arg.name, scheme: { vars: [], constraint: null, body: x1 }, body: ibody },
                         { type: 'eq', left: tfn(x1, x2), right: type },
                     ]),
                 };
@@ -164,28 +164,28 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             const targ = newTypeVar('fn-arg');
             const tres = newTypeVar('fn-body');
             const [pat, vbls, scope] = inferPat(tenv, arg, targ);
-            const body = inferExpr(tenv, expr.body, tres);
+            const ibody = inferExpr(tenv, body, tres);
             return {
                 type: 'exists',
                 vbls: [targ.name, tres.name, ...vbls],
-                body: ands([withScope(ands([pat, body]), scope), { type: 'eq', left: tfn(targ, tres), right: type }]),
+                body: ands([withScope(ands([pat, ibody]), scope), { type: 'eq', left: tfn(targ, tres), right: type }]),
             };
         case 'let': {
-            if (expr.vbls.length > 1) {
-                const [one, ...rest] = expr.vbls;
-                return inferExpr(tenv, { ...expr, vbls: [one], body: { ...expr, vbls: rest } }, type);
+            const [{ pat, init }, ...rest] = expr.vbls;
+            let body = expr.body;
+            if (rest.length) {
+                body = { ...expr, vbls: rest };
             }
-            const [{ pat, init }] = expr.vbls;
             if (pat.type === 'var') {
                 const x = newTypeVar('pat-' + pat.name);
                 const tinit = inferExpr(tenv, init, x);
-                const body = inferExpr(tenv, expr.body, type);
-                return { type: 'def', name: pat.name, scheme: { vars: [x.name], constraint: tinit, body: x }, body };
+                const ibody = inferExpr(tenv, body, type);
+                return { type: 'def', name: pat.name, scheme: { vars: [x.name], constraint: tinit, body: x }, body: ibody };
             }
             const tinit = newTypeVar('let-init');
             const [cpat, vbls, scope] = inferPat(tenv, pat, tinit);
             const cinit = inferExpr(tenv, init, tinit);
-            const cbody = inferExpr(tenv, expr.body, type);
+            const cbody = inferExpr(tenv, body, type);
             return {
                 type: 'exists',
                 vbls: [tinit.name, ...vbls],
