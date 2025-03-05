@@ -37,11 +37,11 @@ const tests: [string, string][] = [
     [`{let x = 10; x}`, 'int'],
     [`(1, 2)`, '(int, int)'],
     [`{let (a, b) = (2, 3); a}`, 'int'],
-    [`(x) => {let (a, b) = x; a}`, `((lambda-body:2, free-b:5)) => lambda-body:2`],
+    [`(x) => {let (a, b) = x; a}`, `((fn-body:2, free-b:5)) => fn-body:2`],
     // BROKEN
     [`{let a = 2; let a = true; a}`, 'bool'],
     [`"hi"`, 'string'],
-    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => lambda-body:2, free-b:5)) => lambda-body:2'],
+    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => fn-body:2, free-b:5)) => fn-body:2'],
     [
         `switch (true) {:
           true: 1
@@ -50,9 +50,10 @@ const tests: [string, string][] = [
         'int',
     ],
     [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
-    [`(x) => x`, `(lambda-body:2) => lambda-body:2`],
+    [`(x) => x`, `(fn-body:2) => fn-body:2`],
     [`{let id = (x) => x; id(true)}`, `bool`],
     ['(a, b) => (a, b)', '(fn-arg:6) => (fn-arg:5) => (fn-arg:6, fn-arg:5)'],
+    ['((a, b)) => a + 2', '((int, free-b:4)) => int'],
 ];
 
 tests.forEach(([input, output]) => {

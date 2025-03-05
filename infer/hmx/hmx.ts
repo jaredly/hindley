@@ -150,7 +150,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             }
             if (arg.type === 'var') {
                 const x1 = newTypeVar('arg-' + arg.name);
-                const x2 = newTypeVar('lambda-body');
+                const x2 = newTypeVar('fn-body');
                 const ibody = inferExpr(tenv, body, x2);
                 return {
                     type: 'exists',
@@ -193,14 +193,15 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             };
         }
         case 'app': {
+            const one = expr.args[expr.args.length - 1];
+            let target = expr.target;
             if (expr.args.length > 1) {
-                const [one, ...rest] = expr.args;
-                return inferExpr(tenv, { ...expr, target: { ...expr, args: [one] }, args: rest }, type);
+                target = { ...expr, args: expr.args.slice(0, -1) };
             }
             const x = newTypeVar('fn-arg');
-            const target = inferExpr(tenv, expr.target, tfn(x, type));
-            const arg = inferExpr(tenv, expr.args[0], x);
-            return { type: 'exists', vbls: [x.name], body: ands([target, arg]) };
+            const itarget = inferExpr(tenv, target, tfn(x, type));
+            const arg = inferExpr(tenv, one, x);
+            return { type: 'exists', vbls: [x.name], body: ands([itarget, arg]) };
         }
         case 'match': {
             const ttarget = newTypeVar('match-target');
