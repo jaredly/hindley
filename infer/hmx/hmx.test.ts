@@ -30,7 +30,6 @@ builtinEnv.scope['<'] = concrete(tfns([tint, tint], tint));
 builtinEnv.scope['='] = generic(['k'], tfns([k, k], tint));
 builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tapp(tcon(','), a), b)));
 builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(tapp(tcon(','), a), b) };
-// builtinEnv.scope['[]'] =
 
 const tests: [string, string][] = [
     [`10`, `int`],

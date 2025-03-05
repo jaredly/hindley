@@ -19,9 +19,13 @@ export const scopeApply = (subst: Subst, scope: Tenv['scope']) => {
 
 type Constraint =
     | null
+    /* Unify one type with another */
     | { type: 'eq'; left: Type; right: Type }
+    /* Solve the left, apply the substitution to the right and then solve that */
     | { type: 'and'; left: Constraint; right: Constraint }
+    /* Declare some favirables that are 'free in the environment' of the body */
     | { type: 'exists'; vbls: string[]; body: Constraint }
+    /* Declare a variable in scope */
     | { type: 'def'; name: string; scheme: Scheme; body: Constraint }
     | { type: 'instance'; name: string; body: Type };
 
@@ -82,8 +86,8 @@ export const instantiate = (scheme: Scheme) => {
     return typeApply(subst, scheme.body);
 };
 
-const inferPatArgs = (tenv: Tenv, subst: Subst, args: Pat[], types: Type[]) => {
-    return args.map((arg, i) => inferPat(tenv, arg, typeApply(subst, types[i])));
+const unzip3 = <A, B, C>(lst: [A, B, C][]): [A[], B[], C[]] => {
+    return [lst.map((l) => l[0]), lst.map((l) => l[1]), lst.map((l) => l[2])];
 };
 
 const inferPat = (tenv: Tenv, pat: Pat, type: Type): [Constraint, string[], Subst] => {
@@ -102,34 +106,18 @@ const inferPat = (tenv: Tenv, pat: Pat, type: Type): [Constraint, string[], Subs
             const vbls = got.free.map((id) => newTypeVar('free-' + id));
             const subst: Subst = {};
             vbls.forEach((vbl, i) => (subst[got.free[i]] = vbl));
-            const argCon = inferPatArgs(tenv, subst, pat.args, got.args);
-            const constr = argCon.map((a) => a[0]);
-            const cvbls = argCon.map((a) => a[1]);
-            const scopes = argCon.map((a) => a[2]);
-            const scope: Subst = {};
-            scopes.forEach((one) => {
-                Object.assign(scope, one);
-            });
+            const [constr, cvbls, scopes] = unzip3(pat.args.map((arg, i) => inferPat(tenv, arg, typeApply(subst, got.args[i]))));
             return [
                 { type: 'and', left: { type: 'eq', left: typeApply(subst, got.result), right: type }, right: ands(constr) },
                 [vbls.map((v) => v.name), ...cvbls].flat(),
-                scope,
+                scopes.reduce((a, b) => (Object.assign(a, b), a), {}),
             ];
     }
 };
 
 const withScope = (inner: Constraint, scope: Subst) => {
     Object.entries(scope).forEach(([name, type]) => {
-        inner = {
-            type: 'def',
-            name,
-            scheme: {
-                vars: [],
-                constraint: null,
-                body: type,
-            },
-            body: inner,
-        };
+        inner = { type: 'def', name, scheme: { vars: [], constraint: null, body: type }, body: inner };
     });
     return inner;
 };
@@ -283,8 +271,6 @@ export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], 
     switch (constraint.type) {
         case 'and': {
             const one = solve(tenv, constraint.left, scope, free);
-            // console.log('one', one);
-            // console.log(JSON.stringify(constraint.right));
             const two = solve(tenv, constraintApply(one, constraint.right), scopeApply(one, scope), free);
             return validateSubst(composeSubst(two, one));
         }
@@ -296,7 +282,6 @@ export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], 
             let got = scope[constraint.name] ?? tenv.scope[constraint.name];
             if (!got) throw new Error(`unbound variable: ${constraint.name}`);
             const igot = instantiate(got);
-            // console.log('igot', typeToString(igot));
             return validateSubst(unify('inst', igot, constraint.body));
         }
         case 'def': {
