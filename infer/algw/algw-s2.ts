@@ -144,6 +144,11 @@ export const mapMap = <T>(f: (arg: T) => T, map: Record<string, T>): Record<stri
 };
 
 export const composeSubst = (newSubst: Subst, oldSubst: Subst) => {
+    Object.keys(newSubst).forEach((k) => {
+        if (oldSubst[k]) {
+            throw new Error(`overwriting substitution, should not happen`);
+        }
+    });
     return {
         ...mapMap((t) => typeApply(newSubst, t), oldSubst),
         ...newSubst,
@@ -167,6 +172,8 @@ export const resetState = () => {
 };
 
 export const newTypeVar = (name: string): Extract<Type, { type: 'var' }> => {
+    // console.log('bew type var', name);
+    // console.log(new Error().stack!.split('\n').slice(1, 3).join('\n'));
     return { type: 'var', name: `${name}:${globalState.nextId++}` };
 };
 

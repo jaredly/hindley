@@ -2,28 +2,8 @@ import { test, expect } from 'bun:test';
 import { js, lex } from '../../lang/lexer';
 import { fromMap } from '../../lang/nodes';
 import { parser } from '../../lang/algw-s2';
-import { solve, inferExpr, Scheme, Tenv } from './hmx';
-import { newTypeVar, resetState, tfns, Type, typeToString } from '../algw/algw-s2';
-
-const tests: [string, string][] = [
-    [`10`, `int`],
-    [`{let x = 10; x}`, 'int'],
-    [`(1, 2)`, '(int, int)'],
-    [`{let (a, b) = (2, 3); a}`, 'int'],
-    [`(x) => {let (a, b) = x; a}`, `((lambda-body:2, b:5)) => lambda-body:2`],
-    // BROKEN
-    // [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
-    [`{let a = 2; let a = true; a}`, 'bool'],
-    [`"hi"`, 'string'],
-    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => lambda-body:2, b:5)) => lambda-body:2'],
-    [
-        `switch (true) {:
-          true: 1
-          false:3
-        :}`,
-        'int',
-    ],
-];
+import { solve, inferExpr, Scheme, Tenv, constraintToString } from './hmx';
+import { newTypeVar, resetState, tfns, Type, typeApply, typeToString } from '../algw/algw-s2';
 
 const builtinEnv: Tenv = {
     aliases: {},
@@ -52,6 +32,28 @@ builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tapp(tcon(','), a)
 builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(tapp(tcon(','), a), b) };
 // builtinEnv.scope['[]'] =
 
+const tests: [string, string][] = [
+    [`10`, `int`],
+    [`{let x = 10; x}`, 'int'],
+    [`(1, 2)`, '(int, int)'],
+    [`{let (a, b) = (2, 3); a}`, 'int'],
+    [`(x) => {let (a, b) = x; a}`, `((lambda-body:2, free-b:5)) => lambda-body:2`],
+    // BROKEN
+    [`{let a = 2; let a = true; a}`, 'bool'],
+    [`"hi"`, 'string'],
+    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => lambda-body:2, free-b:5)) => lambda-body:2'],
+    [
+        `switch (true) {:
+          true: 1
+          false:3
+        :}`,
+        'int',
+    ],
+    [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
+    [`(x) => x`, `(lambda-body:2) => lambda-body:2`],
+    [`{let id = (x) => x; id(true)}`, `bool`],
+];
+
 tests.forEach(([input, output]) => {
     test(input, () => {
         const cst = lex(js, input);
@@ -64,8 +66,18 @@ tests.forEach(([input, output]) => {
         resetState();
         const vbl = newTypeVar('result');
         const res = inferExpr(builtinEnv, parsed.result, vbl);
+        // console.log(constraintToString(res));
         const subst = solve(builtinEnv, res, {}, []);
-        expect(typeToString(subst[vbl.name])).toEqual(output);
+        const t = typeApply(subst, vbl);
+        // console.log();
+        // console.log('t', typeToString(t));
+        // console.log(vbl.name);
+        // console.log(
+        //     Object.entries(subst)
+        //         .map(([name, type]) => `${name}: ${typeToString(type)}`)
+        //         .join('\n'),
+        // );
+        expect(typeToString(t)).toEqual(output);
         // expect(parsed.result).toEqual('');
     });
 });

@@ -1,4 +1,4 @@
-import { composeSubst, Expr, makeSubstForFree, merge, newTypeVar, Pat, Subst, tfn, Type, typeApply, typeFree } from '../algw/algw-s2';
+import { composeSubst, Expr, makeSubstForFree, merge, newTypeVar, Pat, Subst, tfn, Type, typeApply, typeFree, typeToString } from '../algw/algw-s2';
 
 export type Scheme = { vars: string[]; constraint: Constraint; body: Type };
 
@@ -24,6 +24,27 @@ type Constraint =
     | { type: 'exists'; vbls: string[]; body: Constraint }
     | { type: 'def'; name: string; scheme: Scheme; body: Constraint }
     | { type: 'instance'; name: string; body: Type };
+
+const indent = (text: string) => '  ' + text.split('\n').join(`\n  `);
+
+export const constraintToString = (c: Constraint): string => {
+    switch (c.type) {
+        case 'bool':
+            return c.value + '';
+        case 'app':
+            return `(\n  ${indent(typeToString(c.args[0]))}\n    =\n  ${indent(typeToString(c.args[1]))})`;
+        case 'and':
+            return `${constraintToString(c.left)}\n&\n${constraintToString(c.right)}`;
+        case 'exists':
+            return `E(${c.vbls.join(',')} -> \n${indent(constraintToString(c.body))})`;
+        case 'def':
+            return `let ${c.name} =${c.scheme.vars.length ? ` [${c.scheme.vars.join(',')}]` : ''} {${constraintToString(
+                c.scheme.constraint,
+            )}} ${typeToString(c.scheme.body)}\nIN\n${indent(constraintToString(c.body))}`;
+        case 'instance':
+            return `inst(${c.name}) == ${typeToString(c.body)}`;
+    }
+};
 
 const ands = (constrs: Constraint[]): Constraint => {
     if (!constrs.length) return { type: 'bool', value: true };
@@ -51,12 +72,14 @@ const constraintApply = (subst: Subst, constraint: Constraint): Constraint => {
         case 'def':
             return { ...constraint, scheme: schemeApply(subst, constraint.scheme), body: constraintApply(subst, constraint.body) };
         case 'instance':
+            return { ...constraint, body: typeApply(subst, constraint.body) };
         case 'bool':
             return constraint;
     }
 };
 
 export const instantiate = (scheme: Scheme) => {
+    // console.log('isntantiate', scheme);
     const subst = makeSubstForFree(scheme.vars);
     return typeApply(subst, scheme.body);
 };
@@ -78,7 +101,7 @@ const inferPat = (tenv: Tenv, pat: Pat, type: Type): [Constraint, string[], Subs
         case 'con':
             const got = tenv.constructors[pat.name];
             if (!got) throw new Error(`unknown constructor: ${pat.name}`);
-            const vbls = got.free.map((id) => newTypeVar(id));
+            const vbls = got.free.map((id) => newTypeVar('free-' + id));
             const subst: Subst = {};
             vbls.forEach((vbl, i) => (subst[got.free[i]] = vbl));
             const argCon = inferPatArgs(tenv, subst, pat.args, got.args);
@@ -128,7 +151,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             }
             const arg = expr.args[0];
             if (arg.type === 'var') {
-                const x1 = newTypeVar(arg.name);
+                const x1 = newTypeVar('arg-' + arg.name);
                 const x2 = newTypeVar('lambda-body');
                 const body = inferExpr(tenv, expr.body, x2);
                 return {
@@ -156,7 +179,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             }
             const [{ pat, init }] = expr.vbls;
             if (pat.type === 'var') {
-                const x = newTypeVar(pat.name);
+                const x = newTypeVar('pat-' + pat.name);
                 const tinit = inferExpr(tenv, init, x);
                 const body = inferExpr(tenv, expr.body, type);
                 return { type: 'def', name: pat.name, scheme: { vars: [x.name], constraint: tinit, body: x }, body };
@@ -212,7 +235,19 @@ export const varBind = (name: string, type: Type): Subst => {
     return { [name]: type };
 };
 
-export const unify = (one: Type, two: Type): Subst => {
+export const unify = (from: string, one: Type, two: Type): Subst => {
+    // console.log(`unify(${from}) ${typeToString(one)} == ${typeToString(two)}`);
+    const res = unify_(one, two);
+    // console.log(
+    //     Object.entries(res)
+    //         .map(([name, type]) => `  ${name} -> ${typeToString(type)}`)
+    //         .join('\n'),
+    // );
+    // console.log();
+    return res;
+};
+
+export const unify_ = (one: Type, two: Type): Subst => {
     if (one.type === 'var') {
         return varBind(one.name, two);
     }
@@ -224,11 +259,24 @@ export const unify = (one: Type, two: Type): Subst => {
         throw new Error(`Incompatible concrete types: ${one.name} vs ${two.name}`);
     }
     if (one.type === 'app' && two.type === 'app') {
-        const target = unify(one.target, two.target);
-        const arg = unify(typeApply(target, one.arg), typeApply(target, two.arg));
+        const target = unify_(one.target, two.target);
+        const arg = unify_(typeApply(target, one.arg), typeApply(target, two.arg));
         return composeSubst(arg, target);
     }
     throw new Error(`incompatible types ${JSON.stringify(one)} : ${JSON.stringify(two)}`);
+};
+
+const validateSubst = (subst: Subst) => {
+    const keys = Object.keys(subst);
+    keys.forEach((k) => {
+        const f = typeFree(subst[k]);
+        f.forEach((n) => {
+            if (keys.includes(n)) {
+                throw new Error(`subst in a bad place; something on the left exists on the right. ${n}`);
+            }
+        });
+    });
+    return subst;
 };
 
 export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], free: string[]): Subst => {
@@ -238,12 +286,14 @@ export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], 
             throw new Error(`got a false`);
         case 'and': {
             const one = solve(tenv, constraint.left, scope, free);
+            // console.log('one', one);
+            // console.log(JSON.stringify(constraint.right));
             const two = solve(tenv, constraintApply(one, constraint.right), scopeApply(one, scope), free);
-            return composeSubst(two, one);
+            return validateSubst(composeSubst(two, one));
         }
         case 'app':
             if (constraint.name === '=' && constraint.args.length === 2) {
-                return unify(constraint.args[0], constraint.args[1]);
+                return validateSubst(unify('eq', constraint.args[0], constraint.args[1]));
             }
             throw new Error(`unknown applicaiton`);
         case 'exists':
@@ -251,7 +301,9 @@ export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], 
         case 'instance': {
             let got = scope[constraint.name] ?? tenv.scope[constraint.name];
             if (!got) throw new Error(`unbound variable: ${constraint.name}`);
-            return unify(instantiate(got), constraint.body);
+            const igot = instantiate(got);
+            // console.log('igot', typeToString(igot));
+            return validateSubst(unify('inst', igot, constraint.body));
         }
         case 'def': {
             const cns = constraint.scheme.constraint;
@@ -271,7 +323,7 @@ export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], 
                 },
                 free,
             );
-            return composeSubst(res, subst);
+            return validateSubst(composeSubst(res, subst));
         }
     }
 };
