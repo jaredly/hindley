@@ -18,8 +18,8 @@ export const scopeApply = (subst: Subst, scope: Tenv['scope']) => {
 };
 
 type Constraint =
-    | { type: 'bool'; value: boolean }
-    | { type: 'app'; name: string; args: Type[] }
+    | null
+    | { type: 'eq'; left: Type; right: Type }
     | { type: 'and'; left: Constraint; right: Constraint }
     | { type: 'exists'; vbls: string[]; body: Constraint }
     | { type: 'def'; name: string; scheme: Scheme; body: Constraint }
@@ -28,11 +28,10 @@ type Constraint =
 const indent = (text: string) => '  ' + text.split('\n').join(`\n  `);
 
 export const constraintToString = (c: Constraint): string => {
+    if (!c) return 'null';
     switch (c.type) {
-        case 'bool':
-            return c.value + '';
-        case 'app':
-            return `(\n  ${indent(typeToString(c.args[0]))}\n    =\n  ${indent(typeToString(c.args[1]))})`;
+        case 'eq':
+            return `(\n  ${indent(typeToString(c.left))}\n    =\n  ${indent(typeToString(c.right))})`;
         case 'and':
             return `${constraintToString(c.left)}\n&\n${constraintToString(c.right)}`;
         case 'exists':
@@ -47,7 +46,7 @@ export const constraintToString = (c: Constraint): string => {
 };
 
 const ands = (constrs: Constraint[]): Constraint => {
-    if (!constrs.length) return { type: 'bool', value: true };
+    if (!constrs.length) return null;
     let res = constrs[0];
     for (let i = 1; i < constrs.length; i++) {
         res = { type: 'and', left: res, right: constrs[i] };
@@ -62,9 +61,10 @@ const schemeApply = (subst: Subst, scheme: Scheme): Scheme => ({
 });
 
 const constraintApply = (subst: Subst, constraint: Constraint): Constraint => {
+    if (!constraint) return constraint;
     switch (constraint.type) {
-        case 'app':
-            return { ...constraint, args: constraint.args.map((arg) => typeApply(subst, arg)) };
+        case 'eq':
+            return { ...constraint, left: typeApply(subst, constraint.left), right: typeApply(subst, constraint.right) };
         case 'and':
             return { ...constraint, left: constraintApply(subst, constraint.left), right: constraintApply(subst, constraint.right) };
         case 'exists':
@@ -73,8 +73,6 @@ const constraintApply = (subst: Subst, constraint: Constraint): Constraint => {
             return { ...constraint, scheme: schemeApply(subst, constraint.scheme), body: constraintApply(subst, constraint.body) };
         case 'instance':
             return { ...constraint, body: typeApply(subst, constraint.body) };
-        case 'bool':
-            return constraint;
     }
 };
 
@@ -91,13 +89,13 @@ const inferPatArgs = (tenv: Tenv, subst: Subst, args: Pat[], types: Type[]) => {
 const inferPat = (tenv: Tenv, pat: Pat, type: Type): [Constraint, string[], Subst] => {
     switch (pat.type) {
         case 'any':
-            return [{ type: 'bool', value: true }, [], {}];
+            return [null, [], {}];
         case 'var':
             return [{ type: 'instance', name: pat.name, body: type }, [], { [pat.name]: type }];
         case 'prim':
-            return [{ type: 'app', name: '=', args: [{ type: 'con', name: pat.prim.type }, type] }, [], {}];
+            return [{ type: 'eq', left: { type: 'con', name: pat.prim.type }, right: type }, [], {}];
         case 'str':
-            return [{ type: 'app', name: '=', args: [{ type: 'con', name: 'string' }, type] }, [], {}];
+            return [{ type: 'eq', left: { type: 'con', name: 'string' }, right: type }, [], {}];
         case 'con':
             const got = tenv.constructors[pat.name];
             if (!got) throw new Error(`unknown constructor: ${pat.name}`);
@@ -113,7 +111,7 @@ const inferPat = (tenv: Tenv, pat: Pat, type: Type): [Constraint, string[], Subs
                 Object.assign(scope, one);
             });
             return [
-                { type: 'and', left: { type: 'app', name: '=', args: [typeApply(subst, got.result), type] }, right: ands(constr) },
+                { type: 'and', left: { type: 'eq', left: typeApply(subst, got.result), right: type }, right: ands(constr) },
                 [vbls.map((v) => v.name), ...cvbls].flat(),
                 scope,
             ];
@@ -127,7 +125,7 @@ const withScope = (inner: Constraint, scope: Subst) => {
             name,
             scheme: {
                 vars: [],
-                constraint: { type: 'bool', value: true },
+                constraint: null,
                 body: type,
             },
             body: inner,
@@ -139,11 +137,11 @@ const withScope = (inner: Constraint, scope: Subst) => {
 export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
     switch (expr.type) {
         case 'prim':
-            return { type: 'app', name: '=', args: [{ type: 'con', name: expr.prim.type }, type] };
+            return { type: 'eq', left: { type: 'con', name: expr.prim.type }, right: type };
         case 'var':
             return { type: 'instance', name: expr.name, body: type };
         case 'str':
-            return { type: 'app', name: '=', args: [{ type: 'con', name: 'string' }, type] };
+            return { type: 'eq', left: { type: 'con', name: 'string' }, right: type };
         case 'lambda':
             if (expr.args.length > 1) {
                 const [one, ...rest] = expr.args;
@@ -158,8 +156,8 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
                     type: 'exists',
                     vbls: [x1.name, x2.name],
                     body: ands([
-                        { type: 'def', name: arg.name, scheme: { vars: [], constraint: { type: 'bool', value: true }, body: x1 }, body },
-                        { type: 'app', name: '=', args: [tfn(x1, x2), type] },
+                        { type: 'def', name: arg.name, scheme: { vars: [], constraint: null, body: x1 }, body },
+                        { type: 'eq', left: tfn(x1, x2), right: type },
                     ]),
                 };
             }
@@ -170,7 +168,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             return {
                 type: 'exists',
                 vbls: [targ.name, tres.name, ...vbls],
-                body: ands([withScope(ands([pat, body]), scope), { type: 'app', name: '=', args: [tfn(targ, tres), type] }]),
+                body: ands([withScope(ands([pat, body]), scope), { type: 'eq', left: tfn(targ, tres), right: type }]),
             };
         case 'let': {
             if (expr.vbls.length > 1) {
@@ -216,7 +214,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             return {
                 type: 'exists',
                 vbls: [ttarget.name, tres.name],
-                body: ands([{ type: 'app', name: '=', args: [tres, type] }, ctarget, ...ccons]),
+                body: ands([{ type: 'eq', left: tres, right: type }, ctarget, ...ccons]),
             };
         }
     }
@@ -280,10 +278,8 @@ const validateSubst = (subst: Subst) => {
 };
 
 export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], free: string[]): Subst => {
+    if (!constraint) return {};
     switch (constraint.type) {
-        case 'bool':
-            if (constraint.value) return {};
-            throw new Error(`got a false`);
         case 'and': {
             const one = solve(tenv, constraint.left, scope, free);
             // console.log('one', one);
@@ -291,11 +287,8 @@ export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], 
             const two = solve(tenv, constraintApply(one, constraint.right), scopeApply(one, scope), free);
             return validateSubst(composeSubst(two, one));
         }
-        case 'app':
-            if (constraint.name === '=' && constraint.args.length === 2) {
-                return validateSubst(unify('eq', constraint.args[0], constraint.args[1]));
-            }
-            throw new Error(`unknown applicaiton`);
+        case 'eq':
+            return validateSubst(unify('eq', constraint.left, constraint.right));
         case 'exists':
             return solve(tenv, constraint.body, scope, merge(free, constraint.vbls));
         case 'instance': {
@@ -317,7 +310,7 @@ export const solve = (tenv: Tenv, constraint: Constraint, scope: Tenv['scope'], 
                     ...scopeApply(subst, scope),
                     [constraint.name]: {
                         vars: typeFree(nt).filter((t) => !free.includes(t)),
-                        constraint: { type: 'bool', value: true },
+                        constraint: null,
                         body: nt,
                     },
                 },
