@@ -2,7 +2,7 @@ import React from 'react';
 import { js, lex } from '../lang/lexer';
 import { fromMap, Node, Nodes } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
-import { builtinEnv, Expr, inferExpr, inferStmt, resetState, typeToString } from '../infer/algw/algw-s2-return';
+import { builtinEnv, Expr, inferExpr, inferStmt, resetState, Stmt, typeToString } from '../infer/algw/algw-s2-return';
 
 const env = builtinEnv();
 const text = `let quicksort = (arr) => {
@@ -33,7 +33,7 @@ resetState();
 console.log(parsed);
 console.log(node);
 
-const res = inferStmt(env, parsed.result);
+const res = {}; //inferStmt(env, parsed.result);
 console.log('res', res);
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
@@ -52,7 +52,7 @@ export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
     return res;
 };
 
-type Ctx = { nodes: Nodes; parsed: ParseResult<Expr> };
+type Ctx = { nodes: Nodes; parsed: ParseResult<Stmt> };
 
 const styles = {
     kwd: { color: 'green' },
@@ -132,7 +132,7 @@ export const App = () => {
     return (
         <div className="m-2">
             Hello
-            <div>{res ? typeToString(res) : 'NO TYPE'} </div>
+            <div>{res?.return ? typeToString(res.return) : 'NO TYPE'} </div>
             <div>
                 {cst.roots.map((root) => (
                     <RenderNode key={root} node={cst.nodes[root]} ctx={{ nodes: cst.nodes, parsed }} />

@@ -29,6 +29,7 @@ export const builtinEnv = () => {
     builtinEnv.scope['-'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['>'] = concrete(tfns([tint, tint], tbool));
     builtinEnv.scope['<'] = concrete(tfns([tint, tint], tint));
+    builtinEnv.scope['<='] = concrete(tfns([tint, tint], tbool));
     builtinEnv.scope['='] = generic(['k'], tfns([k, k], tint));
     builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tapp(tcon(','), a), b)));
     builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(tapp(tcon(','), a), b) };
@@ -52,11 +53,11 @@ export type Stmt =
 export type Expr =
     | Block
     | { type: 'if'; cond: Expr; yes: Block; no?: Block; src: Src }
-    | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr | Block }[]; src: Src }
+    | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src }
     | { type: 'prim'; prim: Prim; src: Src }
     | { type: 'var'; name: string; src: Src }
     | { type: 'str'; value: string; src: Src }
-    | { type: 'lambda'; args: Pat[]; body: Expr | Block; src: Src }
+    | { type: 'lambda'; args: Pat[]; body: Expr; src: Src }
     | { type: 'app'; target: Expr; args: Expr[]; src: Src };
 export type Pat =
     | { type: 'any'; src: Src }
@@ -187,6 +188,7 @@ export const mapMap = <T>(f: (arg: T) => T, map: Record<string, T>): Record<stri
 export const composeSubst = (newSubst: Subst, oldSubst: Subst) => {
     Object.keys(newSubst).forEach((k) => {
         if (oldSubst[k]) {
+            console.log(newSubst, oldSubst);
             throw new Error(`overwriting substitution, should not happen`);
         }
     });
@@ -269,10 +271,10 @@ export const unify = (one: Type, two: Type) => {
 };
 
 export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
-    const old = globalState.subst;
-    globalState.subst = {};
+    // const old = globalState.subst;
+    // globalState.subst = {};
     const type = inferExprInner(tenv, expr, asStmt);
-    globalState.subst = composeSubst(globalState.subst, old);
+    // globalState.subst = composeSubst(globalState.subst, old);
     return type;
 };
 
@@ -457,7 +459,8 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
             let value: Type | null = null;
             let partial: undefined | boolean = undefined;
             for (let inner of expr.stmts) {
-                const res = inferStmt({ ...tenv, scope: { ...tenv.scope, ...scope } }, inner);
+                const applied = tenvApply(globalState.subst, tenv);
+                const res = inferStmt({ ...applied, scope: { ...applied.scope, ...scope } }, inner);
                 if (res.return) {
                     if (result != null) {
                         unify(res.return, result);

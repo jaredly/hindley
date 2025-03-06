@@ -4,23 +4,28 @@ import { Ctx, list, match, or, Rule, ref, tx, seq, kwd, group, id, star, Src, nu
 // import { binops, Block, Expr, kwds, Stmt } from './js--types';
 import { mergeSrc, nodesSrc } from './ts-types';
 import { Config } from './lexer';
-import { Block, Expr, Pat, Stmt } from '../infer/algw/algw-s2-return';
+import { Expr, Pat } from '../infer/algw/algw-s2';
 
 export const kwds = ['for', 'return', 'new', 'await', 'throw', 'if', 'case', 'else', 'let', 'const', '=', '..', '.', 'fn'];
 export const binops = ['<', '>', '<=', '>=', '!=', '==', '+', '-', '*', '/', '^', '%', '=', '+=', '-=', '|=', '/=', '*='];
 
-const stmts_spaced: Record<string, Rule<Stmt>> = {
-    let: tx<Stmt>(seq(kwd('let'), ref('pat', 'pat'), kwd('=', 'punct'), ref('expr ', 'value')), (ctx, src) => ({
-        type: 'let',
+const stmts: Record<string, Rule<BareLet | Expr>> = {
+    let: tx<BareLet>(seq(kwd('let'), ref('pat', 'pat'), kwd('=', 'punct'), ref('expr ', 'value')), (ctx, src) => ({
+        type: 'bare-let',
         pat: ctx.ref<Pat>('pat'),
         init: ctx.ref<Expr>('value'),
         src,
     })),
-    return: tx<Stmt>(seq(kwd('return'), group('value', opt(ref('expr ')))), (ctx, src) => ({
-        type: 'return',
-        value: ctx.ref<undefined | Expr>('value'),
-        src,
-    })),
+    if: tx<Expr>(
+        seq(kwd('if'), ref('expr', 'cond'), ref('block', 'yes'), opt(seq(kwd('else'), group('no', or(ref('if'), ref('block')))))),
+        (ctx, src) => ({
+            type: 'if',
+            cond: ctx.ref<Expr>('cond'),
+            yes: ctx.ref<Expr>('yes'),
+            no: ctx.ref<undefined | Expr>('no'),
+            src,
+        }),
+    ),
     // throw: tx<Stmt>(seq(kwd('throw'), ref('expr ', 'value')), (ctx, src) => ({
     //     type: 'throw',
     //     value: ctx.ref<Expr>('value'),
@@ -123,12 +128,12 @@ const exprs: Record<string, Rule<Expr>> = {
 };
 
 const rules = {
-    stmt: or<Stmt>(
-        list('spaced', or(...Object.keys(stmts_spaced).map((name) => ref<Stmt>(name)))),
-        // tx(ref('block'), (ctx, src),
+    stmt: or(
+        list('spaced', or(...Object.keys(stmts).map((name) => ref(name)))),
+        ref('block'),
         // tx(kwd('return'), (_, src) => ({ type: 'return', value: null, src })),
         // kwd('continue'),
-        tx(ref('expr', 'expr'), (ctx, src) => ({ type: 'expr', expr: ctx.ref<Expr>('expr'), src })),
+        tx(ref('expr', 'expr'), (ctx, src) => ctx.ref<Expr>('expr')),
     ),
     pat: or<Pat>(
         tx(kwd('_'), (ctx, src) => ({ type: 'any', src })),
@@ -161,7 +166,7 @@ const rules = {
         }),
     ),
     comment: list('smooshed', seq(kwd('//', 'comment'), { type: 'any' })),
-    block: tx<Block>(
+    block: tx<Expr>(
         list(
             'curly',
             group(
@@ -175,29 +180,28 @@ const rules = {
             ),
         ),
         (ctx, src) => {
-            // let result = null as null | Expr;
-            // const items = ctx.ref<(BareLet | Expr | true)[]>('contents').filter((x) => x !== true);
-            // if (!items.length) {
-            //     return { type: 'var', name: 'null', src };
-            // }
-            // while (items.length) {
-            //     const last = items.pop()!;
-            //     if (last.type === 'bare-let') {
-            //         result = {
-            //             type: 'let',
-            //             vbls: [{ pat: last.pat, init: last.init }],
-            //             body: result ?? { type: 'var', name: 'void', src: last.src },
-            //             src: last.src,
-            //         };
-            //     } else {
-            //         result = result ?? last;
-            //     }
-            // }
-            // return result ?? { type: 'var', name: 'empty-block', src };
-            return { type: 'block', stmts: ctx.ref<Stmt[]>('contents'), src };
+            let result = null as null | Expr;
+            const items = ctx.ref<(BareLet | Expr | true)[]>('contents').filter((x) => x !== true);
+            if (!items.length) {
+                return { type: 'var', name: 'null', src };
+            }
+            while (items.length) {
+                const last = items.pop()!;
+                if (last.type === 'bare-let') {
+                    result = {
+                        type: 'let',
+                        vbls: [{ pat: last.pat, init: last.init }],
+                        body: result ?? { type: 'var', name: 'void', src: last.src },
+                        src: last.src,
+                    };
+                } else {
+                    result = result ?? last;
+                }
+            }
+            return result ?? { type: 'var', name: 'empty-block', src };
         },
     ),
-    ...stmts_spaced,
+    ...stmts,
     'expr..': tx<Expr>(
         seq(
             ref('expr', 'base'),
@@ -226,7 +230,7 @@ const rules = {
         ),
         (ctx, src) => parseSmoosh(ctx.ref<Expr>('base'), ctx.ref<Suffix[]>('suffixes'), src),
     ),
-    expr: or(...Object.keys(exprs).map((name) => ref(name)), list('spaced', ref('expr ')), ref('block')),
+    expr: or(...Object.keys(exprs).map((name) => ref(name)), list('spaced', ref('expr '))),
     ...exprs,
     bop: or(...binops.map((m) => kwd(m, 'bop'))),
     'expr ': or(
@@ -236,18 +240,6 @@ const rules = {
             body: ctx.ref<Expr>('body'),
             src,
         })),
-
-        tx<Expr>(
-            seq(kwd('if'), ref('expr', 'cond'), ref('block', 'yes'), opt(seq(kwd('else'), group('no', or(ref('if'), ref('block')))))),
-            (ctx, src) => ({
-                type: 'if',
-                cond: ctx.ref<Expr>('cond'),
-                yes: ctx.ref<Block>('yes'),
-                no: ctx.ref<undefined | Block>('no'),
-                src,
-            }),
-        ),
-
         tx<Expr>(
             seq(
                 kwd('switch'),
@@ -256,7 +248,7 @@ const rules = {
                     'cases',
                     table(
                         'curly',
-                        tx(seq(ref('pat', 'pat'), ref('block', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Block>('body') })),
+                        tx(seq(ref('pat', 'pat'), ref('stmt', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Expr>('body') })),
                     ),
                 ),
             ),
@@ -314,7 +306,7 @@ export type TestParser<T> = {
     spans(ast: any): Src[];
 };
 
-export const parser: TestParser<Stmt> = {
+export const parser: TestParser<Expr> = {
     config: {
         punct: ['.', '/', '~`!@#$%^&*+-=\\/?:><'],
         space: ' ',
@@ -331,19 +323,19 @@ export const parser: TestParser<Stmt> = {
             meta: {},
             autocomplete: cursor != null ? { loc: cursor, concrete: [], kinds: [] } : undefined,
         };
-        const res = match<Stmt>({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: { id: '', idx: '' } }, 0);
-        // if (res?.value?.type === 'bare-let') {
-        //     res.value = {
-        //         type: 'let',
-        //         vbls: [{ pat: res.value.pat, init: res.value.init }],
-        //         src: res.value.src,
-        //         body: {
-        //             type: 'var',
-        //             name: 'null',
-        //             src: res.value.src,
-        //         },
-        //     };
-        // }
+        const res = match<Expr | BareLet>({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: { id: '', idx: '' } }, 0);
+        if (res?.value?.type === 'bare-let') {
+            res.value = {
+                type: 'let',
+                vbls: [{ pat: res.value.pat, init: res.value.init }],
+                src: res.value.src,
+                body: {
+                    type: 'var',
+                    name: 'null',
+                    src: res.value.src,
+                },
+            };
+        }
 
         return {
             result: res?.value,

@@ -21,6 +21,13 @@ const tests: [string, string][] = [
         :}`,
         'int',
     ],
+    [
+        `(arr) => {
+    let x = arr.length;
+    arr
+}`,
+        '(array(k:2)) => array(k:2)',
+    ],
 ];
 
 const env = builtinEnv();

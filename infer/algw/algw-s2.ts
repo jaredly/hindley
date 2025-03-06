@@ -262,10 +262,10 @@ export const unify = (one: Type, two: Type) => {
 };
 
 export const inferExpr = (tenv: Tenv, expr: Expr) => {
-    const old = globalState.subst;
-    globalState.subst = {};
+    // const old = globalState.subst;
+    // globalState.subst = {};
     const type = inferExprInner(tenv, expr);
-    globalState.subst = composeSubst(globalState.subst, old);
+    // globalState.subst = composeSubst(globalState.subst, old);
     return type;
 };
 
@@ -347,7 +347,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             if (pat.type === 'var') {
                 const valueType = inferExpr(tenv, init);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
-                const boundEnv = { ...tenv, scope: { ...tenv.scope, [pat.name]: generalize(appliedEnv, valueType) } };
+                // console.log(globalState.subst);
+                // console.log(appliedEnv.scope);
+                const boundEnv = { ...appliedEnv, scope: { ...appliedEnv.scope, [pat.name]: generalize(appliedEnv, valueType) } };
                 if (expr.body.type === 'var' && expr.body.name === 'null') {
                     return typeApply(globalState.subst, valueType);
                 }
