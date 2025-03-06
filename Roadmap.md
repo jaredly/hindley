@@ -1,4 +1,21 @@
 
+#
+
+Ok, so let's make `return` work!
+How do we do it?
+
+it only is relevant in a block
+anddddd
+
+lol ok.
+so
+this is complicated.
+IF an `if` is being used as an `expr`, then the `values` of the arms need to match.
+BUT if it's being used as a stmt, then they don't.
+
+
+#
+
 Ok now let's do a visualization.
 
 - I've loaded up 'merge sort' into js-- in the j3 playground

@@ -1,17 +1,4 @@
-import {
-    composeSubst,
-    Expr,
-    makeSubstForFree,
-    merge,
-    newTypeVar,
-    Pat,
-    Subst,
-    tfn,
-    Type,
-    typeApply,
-    typeFree,
-    typeToString,
-} from '../algw/algw-s2-return';
+import { composeSubst, Expr, makeSubstForFree, merge, newTypeVar, Pat, Subst, tfn, Type, typeApply, typeFree, typeToString } from '../algw/algw-s2';
 
 export type Scheme = { vars: string[]; constraint: Constraint; body: Type };
 

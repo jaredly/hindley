@@ -16,16 +16,6 @@ const stmts_spaced: Record<string, Rule<Stmt>> = {
         init: ctx.ref<Expr>('value'),
         src,
     })),
-    if: tx<Stmt>(
-        seq(kwd('if'), ref('expr', 'cond'), ref('block', 'yes'), opt(seq(kwd('else'), group('no', or(ref('if'), ref('block')))))),
-        (ctx, src) => ({
-            type: 'if',
-            cond: ctx.ref<Expr>('cond'),
-            yes: ctx.ref<Block>('yes'),
-            no: ctx.ref<undefined | Block>('no'),
-            src,
-        }),
-    ),
     return: tx<Stmt>(seq(kwd('return'), group('value', opt(ref('expr ')))), (ctx, src) => ({
         type: 'return',
         value: ctx.ref<undefined | Expr>('value'),
@@ -246,6 +236,18 @@ const rules = {
             body: ctx.ref<Expr>('body'),
             src,
         })),
+
+        tx<Expr>(
+            seq(kwd('if'), ref('expr', 'cond'), ref('block', 'yes'), opt(seq(kwd('else'), group('no', or(ref('if'), ref('block')))))),
+            (ctx, src) => ({
+                type: 'if',
+                cond: ctx.ref<Expr>('cond'),
+                yes: ctx.ref<Block>('yes'),
+                no: ctx.ref<undefined | Block>('no'),
+                src,
+            }),
+        ),
+
         tx<Expr>(
             seq(
                 kwd('switch'),
@@ -254,7 +256,7 @@ const rules = {
                     'cases',
                     table(
                         'curly',
-                        tx(seq(ref('pat', 'pat'), ref('stmt', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Expr>('body') })),
+                        tx(seq(ref('pat', 'pat'), ref('block', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Block>('body') })),
                     ),
                 ),
             ),

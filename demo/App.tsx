@@ -2,7 +2,7 @@ import React from 'react';
 import { js, lex } from '../lang/lexer';
 import { fromMap, Node, Nodes } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
-import { builtinEnv, Expr, inferExpr, resetState, typeToString } from '../infer/algw/algw-s2-return';
+import { builtinEnv, Expr, inferExpr, inferStmt, resetState, typeToString } from '../infer/algw/algw-s2-return';
 
 const env = builtinEnv();
 const text = `let quicksort = (arr) => {
@@ -29,10 +29,11 @@ const parsed = parser.parse(node);
 if (!parsed.result) throw new Error(`not parsed ${text}`);
 // console.log(parsed.result);
 resetState();
-const res = inferExpr(env, parsed.result);
 
 console.log(parsed);
 console.log(node);
+
+const res = inferStmt(env, parsed.result);
 console.log('res', res);
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
