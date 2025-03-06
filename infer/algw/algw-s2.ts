@@ -36,21 +36,28 @@ export const builtinEnv = () => {
 };
 
 export type Prim = { type: 'int'; value: number } | { type: 'bool'; value: boolean };
-export type Top =
-    | { type: 'def'; name: string; body: Expr }
-    | { type: 'expr'; expr: Expr }
-    | { type: 'deftype'; name: string; args: string[]; constructors: { name: string; args: Type[] }[] }
-    | { type: 'typealias'; name: string; args: string[]; alias: Type };
+// export type Top =
+//     | { type: 'def'; name: string; body: Expr }
+//     | { type: 'expr'; expr: Expr }
+//     | { type: 'deftype'; name: string; args: string[]; constructors: { name: string; args: Type[] }[] }
+//     | { type: 'typealias'; name: string; args: string[]; alias: Type };
+
+export type Block = { type: 'block'; stmts: Stmt[]; src: Src };
+
+export type Stmt =
+    | Block
+    | { type: 'if'; cond: Expr; yes: Block; no?: Block; src: Src }
+    | { type: 'let'; pat: Pat; init: Expr; src: Src }
+    | { type: 'expr'; expr: Expr; src: Src }
+    | { type: 'return'; value?: Expr; src: Src }
+    | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr | Block }[]; src: Src };
 
 export type Expr =
     | { type: 'prim'; prim: Prim; src: Src }
     | { type: 'var'; name: string; src: Src }
     | { type: 'str'; value: string; src: Src }
-    | { type: 'lambda'; args: Pat[]; body: Expr; src: Src }
-    | { type: 'if'; cond: Expr; yes: Expr; no?: Expr; src: Src }
-    | { type: 'app'; target: Expr; args: Expr[]; src: Src }
-    | { type: 'let'; vbls: { pat: Pat; init: Expr }[]; body: Expr; src: Src }
-    | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src };
+    | { type: 'lambda'; args: Pat[]; body: Expr | Block; src: Src }
+    | { type: 'app'; target: Expr; args: Expr[]; src: Src };
 export type Pat =
     | { type: 'any'; src: Src }
     | { type: 'var'; name: string; src: Src }
@@ -272,6 +279,106 @@ export const inferExpr = (tenv: Tenv, expr: Expr) => {
 export const tfn = (arg: Type, body: Type): Type => ({ type: 'app', target: { type: 'app', target: { type: 'con', name: '->' }, arg }, arg: body });
 export const tfns = (args: Type[], body: Type): Type => args.reduceRight((res, arg) => tfn(arg, res), body);
 
+export const inferStmt = (tenv: Tenv, stmt: Stmt): { return: Type | null; value: Type | null; all: boolean; scope?: Tenv['scope'] } => {
+    switch (stmt.type) {
+        case 'if': {
+            const cond = inferExpr(tenv, stmt.cond);
+            unify(cond, { type: 'con', name: 'bool' });
+            const one = inferStmt(tenv, stmt.yes);
+            const two = stmt.no ? inferStmt(tenv, stmt.no) : undefined;
+            if (one.return && two?.return) {
+                unify(one.return, two.return);
+            }
+            const twov = two ? two.value : { type: 'con' as const, name: 'void' };
+            if (one.value && twov) {
+                unify(one.value, twov);
+            }
+            return { return: one.return, all: one.all && two?.all!, value: one.value };
+        }
+        case 'return': {
+            if (!stmt.value) {
+                return { return: { type: 'con', name: 'void' }, all: true, value: null };
+            }
+            const value = inferExpr(tenv, stmt.value);
+            return { return: value, all: true, value: null };
+        }
+        case 'block': {
+            if (!stmt.stmts.length) {
+                return { return: null, all: false, value: { type: 'con', name: 'void' } };
+            }
+            let result: Type | null = null;
+            let all = true;
+            let scope = {};
+            let value: Type | null = null;
+            for (let inner of stmt.stmts) {
+                const res = inferStmt({ ...tenv, scope: { ...tenv.scope, ...scope } }, inner);
+                if (res.return) {
+                    if (result != null) {
+                        unify(res.return, result);
+                    } else {
+                        result = res.return;
+                    }
+                    all = res.all;
+                } else {
+                    all = false;
+                }
+                if (res.scope) {
+                    Object.assign(scope, res.scope);
+                }
+                value = res.value;
+            }
+            return { return: result, all, value };
+        }
+        case 'let': {
+            const { pat, init } = stmt;
+            if (pat.type === 'var') {
+                const valueType = inferExpr(tenv, init);
+                const appliedEnv = tenvApply(globalState.subst, tenv);
+                return { return: null, all: false, scope: { [pat.name]: generalize(appliedEnv, valueType) }, value: { type: 'con', name: 'void' } };
+            }
+            let [type, scope] = inferPattern(tenv, pat);
+            const valueType = inferExpr(tenv, init);
+            unify(type, valueType);
+            scope = scopeApply(globalState.subst, scope);
+            return { return: null, all: false, scope: scope, value: { type: 'con', name: 'void' } };
+        }
+        case 'expr':
+            const value = inferExpr(tenv, stmt.expr);
+            return { return: null, all: false, value };
+        case 'match':
+            throw new Error('not right now');
+        // case 'match': {
+        //     let targetType = inferExpr(tenv, stmt.target);
+        //     let resultType: Type = newTypeVar('match result');
+        //     let midTarget = targetType;
+
+        //     let returnt: Type|null = null;
+
+        //     for (let kase of stmt.cases) {
+        //         let [type, scope] = inferPattern(tenv, kase.pat);
+        //         unify(type, midTarget);
+        //         scope = scopeApply(globalState.subst, scope);
+        //         const innerTenv = { ...tenv, scope: { ...tenv.scope, ...scope } }
+        //         if (kase.body.type === 'block') {
+        //             const result = inferStmt(innerTenv, kase.body);
+        //             if (result.return && !result.all) {
+        //                 throw new Error(`block doesnt return consistently. add a return at the end?`)
+        //             }
+        //             argType = typeApply(globalState.subst, argType);
+        //             return tfn(argType, result.return ?? {type: 'con', name: 'void'});
+        //         }
+        //         const bodyType = inferExpr(innerTenv, kase.body);
+        //         unify(typeApply(globalState.subst, resultType), bodyType);
+        //         midTarget = typeApply(globalState.subst, midTarget);
+        //         resultType = typeApply(globalState.subst, resultType);
+        //     }
+        //     // TODO: check exhaustiveness
+        //     // checkExhaustiveness(tenv, typeApply(globalState.subst, targetType), stmt.cases.map(k => k.pat))
+        //     return resultType;
+        // }
+    }
+};
+
 export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
     switch (expr.type) {
         case 'prim':
@@ -282,26 +389,41 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             return instantiate(got);
         case 'str':
             return { type: 'con', name: 'string' };
-        case 'if': {
-            const cond = inferExpr(tenv, expr.cond);
-            unify(cond, { type: 'con', name: 'bool' });
-            const one = inferExpr(tenv, expr.yes);
-            const two = expr.no ? inferExpr(tenv, expr.no) : { type: 'con' as const, name: 'void' };
-            unify(one, two);
-            return one;
-        }
         case 'lambda':
             if (expr.args.length === 1) {
+                let argType: Type, boundEnv: Tenv;
                 if (expr.args[0].type === 'var') {
-                    let argType: Type = newTypeVar(expr.args[0].name);
-                    const boundEnv: Tenv = { ...tenv, scope: { ...tenv.scope, [expr.args[0].name]: { vars: [], body: argType } } };
-                    const bodyType = inferExpr(boundEnv, expr.body);
-                    argType = typeApply(globalState.subst, argType);
-                    return tfn(argType, bodyType);
+                    argType = newTypeVar(expr.args[0].name);
+                    boundEnv = { ...tenv, scope: { ...tenv.scope, [expr.args[0].name]: { vars: [], body: argType } } };
+
+                    // if (expr.body.type === 'block') {
+                    //     const result = inferStmt(boundEnv, expr.body);
+                    //     if (result.return && !result.all) {
+                    //         throw new Error(`block doesnt return consistently. add a return at the end?`)
+                    //     }
+                    //     argType = typeApply(globalState.subst, argType);
+                    //     return tfn(argType, result.return ?? {type: 'con', name: 'void'});
+                    // }
+
+                    // const bodyType = inferExpr(boundEnv, expr.body);
+                    // argType = typeApply(globalState.subst, argType);
+                    // return tfn(argType, bodyType);
+                } else {
+                    let scope;
+                    [argType, scope] = inferPattern(tenv, expr.args[0]);
+                    scope = scopeApply(globalState.subst, scope);
+                    boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
                 }
-                let [argType, scope] = inferPattern(tenv, expr.args[0]);
-                scope = scopeApply(globalState.subst, scope);
-                const boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
+
+                if (expr.body.type === 'block') {
+                    const result = inferStmt(boundEnv, expr.body);
+                    if (result.return && !result.all) {
+                        throw new Error(`block doesnt return consistently. add a return at the end?`);
+                    }
+                    argType = typeApply(globalState.subst, argType);
+                    return tfn(argType, result.return ?? { type: 'con', name: 'void' });
+                }
+
                 const bodyType = inferExpr(boundEnv, expr.body);
                 argType = typeApply(globalState.subst, argType);
                 return tfn(argType, bodyType);
@@ -332,52 +454,35 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 src: expr.src,
             });
         }
-        case 'let': {
-            if (expr.vbls.length === 0) throw new Error('no bindings in let');
-            if (expr.vbls.length > 1) {
-                const [one, ...more] = expr.vbls;
-                return inferExpr(tenv, {
-                    type: 'let',
-                    vbls: [one],
-                    body: { type: 'let', vbls: more, body: expr.body, src: expr.src },
-                    src: expr.src,
-                });
-            }
-            const { pat, init } = expr.vbls[0];
-            if (pat.type === 'var') {
-                const valueType = inferExpr(tenv, init);
-                const appliedEnv = tenvApply(globalState.subst, tenv);
-                const boundEnv = { ...tenv, scope: { ...tenv.scope, [pat.name]: generalize(appliedEnv, valueType) } };
-                if (expr.body.type === 'var' && expr.body.name === 'null') {
-                    return typeApply(globalState.subst, valueType);
-                }
-                return inferExpr(boundEnv, expr.body);
-            }
-            let [type, scope] = inferPattern(tenv, pat);
-            const valueType = inferExpr(tenv, init);
-            unify(type, valueType);
-            scope = scopeApply(globalState.subst, scope);
-            const boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
-            const bodyType = inferExpr(boundEnv, expr.body);
-            return bodyType;
-        }
-        case 'match': {
-            let targetType = inferExpr(tenv, expr.target);
-            let resultType: Type = newTypeVar('match result');
-            let midTarget = targetType;
-            for (let kase of expr.cases) {
-                let [type, scope] = inferPattern(tenv, kase.pat);
-                unify(type, midTarget);
-                scope = scopeApply(globalState.subst, scope);
-                const bodyType = inferExpr({ ...tenv, scope: { ...tenv.scope, ...scope } }, kase.body);
-                unify(typeApply(globalState.subst, resultType), bodyType);
-                midTarget = typeApply(globalState.subst, midTarget);
-                resultType = typeApply(globalState.subst, resultType);
-            }
-            // TODO: check exhaustiveness
-            // checkExhaustiveness(tenv, typeApply(globalState.subst, targetType), expr.cases.map(k => k.pat))
-            return resultType;
-        }
+        // case 'let': {
+        //     if (expr.vbls.length === 0) throw new Error('no bindings in let');
+        //     if (expr.vbls.length > 1) {
+        //         const [one, ...more] = expr.vbls;
+        //         return inferExpr(tenv, {
+        //             type: 'let',
+        //             vbls: [one],
+        //             body: { type: 'let', vbls: more, body: expr.body, src: expr.src },
+        //             src: expr.src,
+        //         });
+        //     }
+        //     const { pat, init } = expr.vbls[0];
+        //     if (pat.type === 'var') {
+        //         const valueType = inferExpr(tenv, init);
+        //         const appliedEnv = tenvApply(globalState.subst, tenv);
+        //         const boundEnv = { ...tenv, scope: { ...tenv.scope, [pat.name]: generalize(appliedEnv, valueType) } };
+        //         if (expr.body.type === 'var' && expr.body.name === 'null') {
+        //             return typeApply(globalState.subst, valueType);
+        //         }
+        //         return inferExpr(boundEnv, expr.body);
+        //     }
+        //     let [type, scope] = inferPattern(tenv, pat);
+        //     const valueType = inferExpr(tenv, init);
+        //     unify(type, valueType);
+        //     scope = scopeApply(globalState.subst, scope);
+        //     const boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
+        //     const bodyType = inferExpr(boundEnv, expr.body);
+        //     return bodyType;
+        // }
     }
     throw new Error('Unknown expr type: ' + (expr as any).type);
 };
