@@ -4,7 +4,7 @@ import { Ctx, list, match, or, Rule, ref, tx, seq, kwd, group, id, star, Src, nu
 // import { binops, Block, Expr, kwds, Stmt } from './js--types';
 import { mergeSrc, nodesSrc } from './ts-types';
 import { Config } from './lexer';
-import { Block, Expr, Pat, Stmt } from '../infer/algw/algw-s2-return';
+import { Block, Expr, Pat, Spread, Stmt } from '../infer/algw/algw-s2-return';
 
 export const kwds = ['for', 'return', 'new', 'await', 'throw', 'if', 'case', 'else', 'let', 'const', '=', '..', '.', 'fn'];
 export const binops = ['<', '>', '<=', '>=', '!=', '==', '+', '-', '*', '/', '^', '%', '=', '+=', '-=', '|=', '/=', '*='];
@@ -226,7 +226,30 @@ const rules = {
         ),
         (ctx, src) => parseSmoosh(ctx.ref<Expr>('base'), ctx.ref<Suffix[]>('suffixes'), src),
     ),
-    expr: or(...Object.keys(exprs).map((name) => ref(name)), list('spaced', ref('expr ')), ref('block')),
+    expr: or(
+        ...Object.keys(exprs).map((name) => ref(name)),
+        list('spaced', ref('expr ')),
+        ref('block'),
+        tx<Expr>(
+            list(
+                'square',
+                group(
+                    'items',
+                    star(
+                        or(
+                            tx<Spread<Expr>>(list('smooshed', seq(kwd('...'), ref('expr..', 'expr'))), (ctx, src) => ({
+                                type: 'spread',
+                                inner: ctx.ref<Expr>('expr'),
+                                src,
+                            })),
+                            ref('expr'),
+                        ),
+                    ),
+                ),
+            ),
+            (ctx, src) => ({ type: 'array', items: ctx.ref<(Expr | Spread<Expr>)[]>('items'), src }),
+        ),
+    ),
     ...exprs,
     bop: or(...binops.map((m) => kwd(m, 'bop'))),
     'expr ': or(

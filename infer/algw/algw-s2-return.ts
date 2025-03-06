@@ -24,6 +24,7 @@ export const builtinEnv = () => {
     builtinEnv.scope['length'] = generic(['k'], tfn(tapp(tcon('array'), k), tint));
     builtinEnv.scope['index'] = generic(['k'], tfns([tapp(tcon('array'), k), tint], tint));
     builtinEnv.scope['[]'] = generic(['k'], tapp(tcon('array'), k));
+    builtinEnv.scope['::'] = generic(['k'], tfns([k, tapp(tcon('array'), k)], tapp(tcon('array'), k)));
     builtinEnv.scope['void'] = concrete({ type: 'con', name: 'void' });
     builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['-'] = concrete(tfns([tint, tint], tint));
@@ -50,10 +51,12 @@ export type Stmt =
     | { type: 'expr'; expr: Expr; src: Src }
     | { type: 'return'; value?: Expr; src: Src };
 
+export type Spread<T> = { type: 'spread'; inner: T; src: Src };
 export type Expr =
     | Block
     | { type: 'if'; cond: Expr; yes: Block; no?: Block; src: Src }
     | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src }
+    | { type: 'array'; items: (Expr | Spread<Expr>)[]; src: Src }
     | { type: 'prim'; prim: Prim; src: Src }
     | { type: 'var'; name: string; src: Src }
     | { type: 'str'; value: string; src: Src }

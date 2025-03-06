@@ -23,17 +23,21 @@ const tests: [string, string][] = [
     }`,
         '(array(k:4)) => int',
     ],
+    ['[1,2]', 'array(int)'],
     [
-        `(arr) => {
-        if (arr.length <= 1) {
-            return arr;
-        }
-        let pivot = arr[arr.length - 1];
-        let leftArr = [];
-        let rightArr = [];
-        return arr;
-    }`,
-        '(array(k:4)) => array(k:4)',
+        `{
+            let quicksort = (arr) => {
+                if (arr.length <= 1) {
+                    return arr;
+                }
+                let pivot = arr[arr.length - 1];
+                let leftArr = [];
+                let rightArr = [];
+                return [1,2];
+            };
+            quicksort
+        }`,
+        '(array(k:4:14)) => array(k:4:14)',
     ],
     // [
     //     `switch (true) {:
@@ -58,11 +62,9 @@ tests.forEach(([input, output]) => {
         const parsed = parser.parse(node);
         if (!parsed.result) throw new Error(`not parsed ${input}`);
         Object.entries(parsed.ctx.meta).forEach(([id, meta]) => {
-            if (['kwd', 'punct', 'bop', 'number'].includes(meta.kind)) return;
             if (meta.kind === 'unparsed') {
                 throw new Error(`unparsed ${id}`);
             }
-            throw meta.kind;
         });
         // console.log(parsed.result);
         resetState();
