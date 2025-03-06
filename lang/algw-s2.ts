@@ -67,8 +67,8 @@ const parseSmoosh = (base: Expr, suffixes: Suffix[], src: Src): Expr => {
                     src: mergeSrc(base.src, suffix.src),
                 };
                 return;
-            default:
-                throw new Error(`not doing ${suffix.type} right now`);
+            // default:
+            //     throw new Error(`not doing ${(suffix as any).type} right now`);
         }
     });
     return { ...base, src };

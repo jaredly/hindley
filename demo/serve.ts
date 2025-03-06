@@ -1,8 +1,6 @@
 import { readFileSync, unlinkSync, watch, writeFileSync } from 'fs';
 import { join } from 'path';
 
-import type { UserConfig } from '@unocss/core';
-import type { BunPlugin } from 'bun';
 import { loadConfig } from '@unocss/config';
 import { createGenerator } from '@unocss/core';
 
