@@ -22,6 +22,9 @@ export const builtinEnv = () => {
     builtinEnv.scope['true'] = concrete({ type: 'con', name: 'bool' });
     builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool' });
     builtinEnv.scope['length'] = generic(['k'], tfn(tapp(tcon('array'), k), tint));
+    builtinEnv.scope['index'] = generic(['k'], tfns([tapp(tcon('array'), k), tint], tint));
+    builtinEnv.scope['[]'] = generic(['k'], tapp(tcon('array'), k));
+    builtinEnv.scope['void'] = concrete({ type: 'con', name: 'void' });
     builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['-'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['>'] = concrete(tfns([tint, tint], tbool));
@@ -44,6 +47,7 @@ export type Expr =
     | { type: 'var'; name: string; src: Src }
     | { type: 'str'; value: string; src: Src }
     | { type: 'lambda'; args: Pat[]; body: Expr; src: Src }
+    | { type: 'if'; cond: Expr; yes: Expr; no?: Expr; src: Src }
     | { type: 'app'; target: Expr; args: Expr[]; src: Src }
     | { type: 'let'; vbls: { pat: Pat; init: Expr }[]; body: Expr; src: Src }
     | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src };
@@ -278,6 +282,14 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             return instantiate(got);
         case 'str':
             return { type: 'con', name: 'string' };
+        case 'if': {
+            const cond = inferExpr(tenv, expr.cond);
+            unify(cond, { type: 'con', name: 'bool' });
+            const one = inferExpr(tenv, expr.yes);
+            const two = expr.no ? inferExpr(tenv, expr.no) : { type: 'con' as const, name: 'void' };
+            unify(one, two);
+            return one;
+        }
         case 'lambda':
             if (expr.args.length === 1) {
                 if (expr.args[0].type === 'var') {

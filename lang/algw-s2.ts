@@ -9,20 +9,23 @@ import { Expr, Pat } from '../infer/algw/algw-s2';
 export const kwds = ['for', 'return', 'new', 'await', 'throw', 'if', 'case', 'else', 'let', 'const', '=', '..', '.', 'fn'];
 export const binops = ['<', '>', '<=', '>=', '!=', '==', '+', '-', '*', '/', '^', '%', '=', '+=', '-=', '|=', '/=', '*='];
 
-const stmts: Record<string, Rule<BareLet>> = {
+const stmts: Record<string, Rule<BareLet | Expr>> = {
     let: tx<BareLet>(seq(kwd('let'), ref('pat', 'pat'), kwd('=', 'punct'), ref('expr ', 'value')), (ctx, src) => ({
         type: 'bare-let',
         pat: ctx.ref<Pat>('pat'),
         init: ctx.ref<Expr>('value'),
         src,
     })),
-    // if: tx(seq(kwd('if'), ref('expr', 'cond'), ref('block', 'yes'), opt(seq(kwd('else'), group('no', or(ref('if'), ref('block')))))), (ctx, src) => ({
-    //     type: 'if',
-    //     cond: ctx.ref<Expr>('cond'),
-    //     yes: ctx.ref<Block>('yes'),
-    //     no: ctx.ref<null | Block>('no'),
-    //     src,
-    // })),
+    if: tx<Expr>(
+        seq(kwd('if'), ref('expr', 'cond'), ref('block', 'yes'), opt(seq(kwd('else'), group('no', or(ref('if'), ref('block')))))),
+        (ctx, src) => ({
+            type: 'if',
+            cond: ctx.ref<Expr>('cond'),
+            yes: ctx.ref<Expr>('yes'),
+            no: ctx.ref<undefined | Expr>('no'),
+            src,
+        }),
+    ),
     // throw: tx<Stmt>(seq(kwd('throw'), ref('expr ', 'value')), (ctx, src) => ({
     //     type: 'throw',
     //     value: ctx.ref<Expr>('value'),
@@ -43,17 +46,29 @@ const parseSmoosh = (base: Expr, suffixes: Suffix[], src: Src): Expr => {
     if (!suffixes.length) return base;
     suffixes.forEach((suffix) => {
         switch (suffix.type) {
-            // case 'attribute':
-            //     base = { type: 'attribute', target: base, attribute: suffix.attribute, src: mergeSrc(base.src, nodesSrc(suffix.attribute)) };
-            //     return;
+            case 'attribute':
+                // base = { type: 'attribute', target: base, attribute: suffix.attribute, src: mergeSrc(base.src, nodesSrc(suffix.attribute)) };
+                base = {
+                    type: 'app',
+                    target: { type: 'var', name: suffix.attribute.text, src: nodesSrc(suffix.attribute) },
+                    args: [base],
+                    src: mergeSrc(base.src, suffix.src),
+                };
+                return;
             case 'call':
                 base = { type: 'app', target: base, args: suffix.items, src: mergeSrc(base.src, suffix.src) };
                 return;
-            // case 'index':
-            //     base = { type: 'index', target: base, index: suffix.index, src: mergeSrc(base.src, suffix.src) };
-            //     return;
+            case 'index':
+                // base = { type: 'index', target: base, index: suffix.index, src: mergeSrc(base.src, suffix.src) };
+                base = {
+                    type: 'app',
+                    target: { type: 'var', name: 'index', src: suffix.src },
+                    args: [base, suffix.index],
+                    src: mergeSrc(base.src, suffix.src),
+                };
+                return;
             default:
-                throw new Error('not doing right now');
+                throw new Error(`not doing ${suffix.type} right now`);
         }
     });
     return { ...base, src };
@@ -176,7 +191,7 @@ const rules = {
                     result = {
                         type: 'let',
                         vbls: [{ pat: last.pat, init: last.init }],
-                        body: result ?? { type: 'var', name: 'null-block', src: last.src },
+                        body: result ?? { type: 'var', name: 'void', src: last.src },
                         src: last.src,
                     };
                 } else {

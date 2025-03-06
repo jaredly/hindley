@@ -130,6 +130,8 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             return { type: 'instance', name: expr.name, body: type };
         case 'str':
             return { type: 'eq', left: { type: 'con', name: 'string' }, right: type };
+        case 'if':
+            throw new Error('not yet');
         case 'lambda':
             let body = expr.body;
             const [arg, ...rest] = expr.args;
@@ -207,6 +209,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr, type: Type): Constraint => {
             };
         }
     }
+    throw new Error('lol');
 };
 
 export const varBind = (name: string, type: Type): Subst => {
