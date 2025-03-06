@@ -5,36 +5,36 @@ import { parser } from '../../lang/algw-s2-return';
 import { builtinEnv, inferExpr, inferStmt, resetState, Scheme, Tenv, tfns, Type, typeToString } from './algw-s2-return';
 
 const tests: [string, string][] = [
-    //     [`10`, `int`],
-    //     [`{let x = 10; x}`, 'int'],
-    //     [`(1, 2)`, '(int, int)'],
-    //     [`{let (a, b) = (2, 3); a}`, 'int'],
-    //     [`(x) => {let (a, b) = x; a}`, `((a:1, b:2)) => a:1`],
-    //     [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
-    //     [`{let a = 2; let a = true; a}`, 'bool'],
-    //     [`"hi"`, 'string'],
-    //     [`(x) => {let (a, _) = x; a(2)}`, '(((int) => result:5, b:2)) => result:5'],
-    //     [
-    //         `(arr) => {
-    //     if (arr.length <= 1) {
-    //         return 10;
-    //     }
-    //     return 5;
-    // }`,
-    //         '(array(k:4)) => int',
-    //     ],
-    // [
-    //     `(arr) => {
-    //     if (arr.length <= 1) {
-    //         return arr;
-    //     }
-    //     let pivot = arr[arr.length - 1];
-    //     let leftArr = [];
-    //     let rightArr = [];
-    //     return arr;
-    // }`,
-    //     '(array(k:4)) => array(k:4)',
-    // ],
+    [`10`, `int`],
+    [`{let x = 10; x}`, 'int'],
+    [`(1, 2)`, '(int, int)'],
+    [`{let (a, b) = (2, 3); a}`, 'int'],
+    [`(x) => {let (a, b) = x; a}`, `((a:1, b:2)) => a:1`],
+    [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
+    [`{let a = 2; let a = true; a}`, 'bool'],
+    [`"hi"`, 'string'],
+    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => result:5, b:2)) => result:5'],
+    [
+        `(arr) => {
+        if (arr.length <= 1) {
+            return 10;
+        }
+        return 5;
+    }`,
+        '(array(k:4)) => int',
+    ],
+    [
+        `(arr) => {
+        if (arr.length <= 1) {
+            return arr;
+        }
+        let pivot = arr[arr.length - 1];
+        let leftArr = [];
+        let rightArr = [];
+        return arr;
+    }`,
+        '(array(k:4)) => array(k:4)',
+    ],
     // [
     //     `switch (true) {:
     //       true: 1
