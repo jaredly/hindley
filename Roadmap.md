@@ -1,4 +1,77 @@
 
+Ok now let's do a visualization.
+
+- I've loaded up 'merge sort' into js-- in the j3 playground
+- but actually I probably want to make custom UI for the stuff here.
+
+#
+
+Ok, let's talk about multiple static dispatch.
+the way koka does it is totally unacceptable.
+It can't figure out
+```koka
+fun i/ok(x) { x + 2 }
+fun s/ok(x) { x ++ "hi" }
+fun please(x) {
+  ok(x) + 2
+}
+```
+
+even though HM inference is all about being able to incorporate info from the whole thing at once,
+not needing hints to be delivered in a "certain order".
+
+First idea:
+- if you run into an identifier that is ambiguous, just make a new type variable, and add it to a map for bookeeping.
+  after inferring the whole term, check that map, and then do resolution with all of the information you've gathered.
+  weakness: this still has the capacity to "fail" with a "this is ambiugous" message.
+
+Enhancement:
+- if you end up with ambiguity: add an implicit parameter to the function. yay it's like typeclasses, kinda.
+  if there are multiple, what do we do? idk.
+  also, implicit parameters means we need non-currying, right? I'm pretty sure that's what it means.
+
+Enhancement:
+- just so it's not totally wild west, what if we require that multi-dispatch-ers be declared?
+
+```
+multi length <a>(self: a) -> int
+
+multi + <a>(left: a, right: a) -> a
+
+multi str <a>(self: a) -> string
+
+multi fmt <a>(self: a, f: Formatter) -> Result<(), Error>
+
+multi index <self, idx, output>(self: self, idx: idx) -> output
+
+multi default <self>() -> self
+
+let arr/index: <v>(self: array<v>, idx: number): v -> ...
+```
+
+I need to figure out if ... arr/index will unify with index ... under normal rules.
+seems like maybe it ought to?
+
+
+howww do I feel about /grouping/ multis?
+hmm. it does seem like a good idea.
+
+```
+multi algidk <a>{
+  + (a, a) -> a
+  - (a, a) -> a
+}
+multi monad <a * -> *>{
+  pure <m>(value: m) -> a<m>
+  map <m, n>(value: a<m>, f: m -> n) -> a<n>
+}
+```
+
+
+
+
+
+#
 
 How to make HMX make more sense?
 
