@@ -129,7 +129,7 @@ const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 
 export const App = () => {
     return (
-        <div>
+        <div className="m-2">
             Hello
             <div>{res ? typeToString(res) : 'NO TYPE'} </div>
             <div>

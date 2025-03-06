@@ -1,5 +1,20 @@
-import { unlinkSync, watch } from 'fs';
+import { readFileSync, unlinkSync, watch, writeFileSync } from 'fs';
 import { join } from 'path';
+
+import type { UserConfig } from '@unocss/core';
+import type { BunPlugin } from 'bun';
+import { loadConfig } from '@unocss/config';
+import { createGenerator } from '@unocss/core';
+
+const makeCss = async (js: string) => {
+    const found: string[] = [];
+    js.replace(/className:\s*"([^"]+)"/, (ok, what) => {
+        found.push(...what.split(' '));
+        return '';
+    });
+    const generator = await createGenerator((await loadConfig()).config);
+    return generator.generate(found);
+};
 
 const bounce = (time: number, fn: () => unknown) => {
     let wait: null | Timer = null;
@@ -18,15 +33,18 @@ const rebuild = bounce(10, () => {
         outdir: './',
         naming: 'run.js',
     })
-        .then((one) => {
+        .then(async (one) => {
             if (!one.success) {
                 unlinkSync('./run.js');
                 throw new Error('build failureeee');
             }
+            const css = await makeCss(readFileSync('./run.js', 'utf8'));
+            writeFileSync('./run.css', css.css);
             console.log('rebuilt successfully');
         })
         .catch((err) => {
             console.log('failed? idk');
+            console.error(err);
         });
 });
 
