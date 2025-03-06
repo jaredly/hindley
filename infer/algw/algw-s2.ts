@@ -336,6 +336,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 const valueType = inferExpr(tenv, init);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
                 const boundEnv = { ...tenv, scope: { ...tenv.scope, [pat.name]: generalize(appliedEnv, valueType) } };
+                if (expr.body.type === 'var' && expr.body.name === 'null') {
+                    return typeApply(globalState.subst, valueType);
+                }
                 return inferExpr(boundEnv, expr.body);
             }
             let [type, scope] = inferPattern(tenv, pat);
@@ -344,7 +347,6 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             scope = scopeApply(globalState.subst, scope);
             const boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
             const bodyType = inferExpr(boundEnv, expr.body);
-            console.log('body', bodyType, expr.body);
             return bodyType;
         }
         case 'match': {

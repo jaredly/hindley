@@ -1,11 +1,25 @@
 import React from 'react';
 import { js, lex } from '../lang/lexer';
 import { fromMap, Node, Nodes } from '../lang/nodes';
-import { parser } from '../lang/algw-s2';
-import { builtinEnv, inferExpr, resetState, typeToString } from '../infer/algw/algw-s2';
+import { parser, ParseResult } from '../lang/algw-s2';
+import { builtinEnv, Expr, inferExpr, resetState, typeToString } from '../infer/algw/algw-s2';
 
 const env = builtinEnv();
-const text = `let quicksort = (arr) => {\nif (length(arr) <= 1) {\nreturn arr}}`;
+const text = `let quicksort = (arr) => {
+if (arr.length <= 1) {
+return arr}
+let pivot = arr[arr.length - 1]
+let leftArr = []
+let rightArr = []
+for (let i = 0; i < arr.length; i++) {
+if (arr[i] < pivot) {
+    leftArr.push(arr[i])
+} else {
+    rightArr.push(arr[i])
+}
+}
+return [...quickSort(leftArr), pivot, ...quickSort(rightArr)]
+}`;
 // const text = `(x) => {let (a, _) = x; a(2)}`;
 const cst = lex(js, text);
 // console.log(JSON.stringify(cst, null, 2));
@@ -37,13 +51,23 @@ export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
     return res;
 };
 
-const RenderNode = ({ node, nodes }: { node: Node; nodes: Nodes }) => {
+type Ctx = { nodes: Nodes; parsed: ParseResult<Expr> };
+
+const styles = {
+    kwd: { color: 'green' },
+    punct: { color: 'gray' },
+    unparsed: { color: 'red' },
+};
+
+const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
+    const meta = ctx.parsed.ctx.meta[node.loc];
+    const style = styles[meta?.kind as 'kwd'];
     switch (node.type) {
         case 'id':
-            return node.text;
+            return <span style={style}>{node.text}</span>;
         case 'text':
             return (
-                <span>
+                <span style={style}>
                     "
                     {node.spans.map((span, i) =>
                         span.type === 'text' ? (
@@ -51,7 +75,7 @@ const RenderNode = ({ node, nodes }: { node: Node; nodes: Nodes }) => {
                         ) : (
                             <span key={span.item}>
                                 {'${'}
-                                <RenderNode node={nodes[span.item]} nodes={nodes} />
+                                <RenderNode node={ctx.nodes[span.item]} ctx={ctx} />
                                 {'}'}
                             </span>
                         ),
@@ -62,18 +86,18 @@ const RenderNode = ({ node, nodes }: { node: Node; nodes: Nodes }) => {
         case 'list':
             if (node.kind === 'smooshed') {
                 return (
-                    <span>
+                    <span style={style}>
                         {node.children.map((i) => (
-                            <RenderNode key={i} node={nodes[i]} nodes={nodes} />
+                            <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />
                         ))}
                     </span>
                 );
             }
             if (node.kind === 'spaced') {
                 return (
-                    <span>
+                    <span style={style}>
                         {interleave(
-                            node.children.map((i) => <RenderNode key={i} node={nodes[i]} nodes={nodes} />),
+                            node.children.map((i) => <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />),
                             (i) => (
                                 <span key={'mid-' + i}>&nbsp;</span>
                             ),
@@ -82,28 +106,24 @@ const RenderNode = ({ node, nodes }: { node: Node; nodes: Nodes }) => {
                 );
             }
             return (
-                <span>
+                <span style={style}>
                     {opener[node.kind]}
                     {/* {node.forceMultiline ? <br /> : null} */}
                     {interleave(
                         node.children.map((id) => (
                             <span key={id} style={node.forceMultiline ? { marginLeft: 16, display: 'block' } : undefined}>
-                                <RenderNode key={id} node={nodes[id]} nodes={nodes} />
+                                <RenderNode key={id} node={ctx.nodes[id]} ctx={ctx} />
+                                {node.forceMultiline ? (node.kind === 'curly' ? ';' : ',') : null}
                             </span>
                         )),
-                        (i) => (
-                            <span key={'mid-' + i}>
-                                {node.kind === 'curly' ? ';' : ','}
-                                {node.forceMultiline ? <br /> : null}
-                            </span>
-                        ),
+                        (i) => (node.forceMultiline ? null : <span key={'mid-' + i}>{node.kind === 'curly' ? '; ' : ', '}</span>),
                     )}
                     {/* {node.forceMultiline ? <br /> : null} */}
                     {closer[node.kind]}
                 </span>
             );
         case 'table':
-            return <span>TABLE</span>;
+            return <span style={style}>TABLE</span>;
     }
 };
 
@@ -114,9 +134,10 @@ export const App = () => {
             <div>{res ? typeToString(res) : 'NO TYPE'} </div>
             <div>
                 {cst.roots.map((root) => (
-                    <RenderNode key={root} node={cst.nodes[root]} nodes={cst.nodes} />
+                    <RenderNode key={root} node={cst.nodes[root]} ctx={{ nodes: cst.nodes, parsed }} />
                 ))}
             </div>
+            <div>{JSON.stringify(parsed.ctx.meta)}</div>
         </div>
     );
 };
