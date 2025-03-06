@@ -1,8 +1,8 @@
 import React from 'react';
 import { js, lex } from '../lang/lexer';
 import { fromMap, Node, Nodes } from '../lang/nodes';
-import { parser, ParseResult } from '../lang/algw-s2';
-import { builtinEnv, Expr, inferExpr, resetState, typeToString } from '../infer/algw/algw-s2';
+import { parser, ParseResult } from '../lang/algw-s2-return';
+import { builtinEnv, Expr, inferExpr, resetState, typeToString } from '../infer/algw/algw-s2-return';
 
 const env = builtinEnv();
 const text = `let quicksort = (arr) => {

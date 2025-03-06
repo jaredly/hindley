@@ -1,9 +1,9 @@
 import { test, expect } from 'bun:test';
 import { js, lex } from '../../lang/lexer';
 import { fromMap } from '../../lang/nodes';
-import { parser } from '../../lang/algw-s2';
+import { parser } from '../../lang/algw-s2-return';
 import { solve, inferExpr, Scheme, Tenv, constraintToString } from './hmx';
-import { newTypeVar, resetState, tfns, Type, typeApply, typeToString } from '../algw/algw-s2';
+import { newTypeVar, resetState, tfns, Type, typeApply, typeToString } from '../algw/algw-s2-return';
 
 const builtinEnv: Tenv = {
     aliases: {},

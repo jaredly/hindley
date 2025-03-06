@@ -4,7 +4,7 @@ import { Ctx, list, match, or, Rule, ref, tx, seq, kwd, group, id, star, Src, nu
 // import { binops, Block, Expr, kwds, Stmt } from './js--types';
 import { mergeSrc, nodesSrc } from './ts-types';
 import { Config } from './lexer';
-import { Block, Expr, Pat, Stmt } from '../infer/algw/algw-s2';
+import { Block, Expr, Pat, Stmt } from '../infer/algw/algw-s2-return';
 
 export const kwds = ['for', 'return', 'new', 'await', 'throw', 'if', 'case', 'else', 'let', 'const', '=', '..', '.', 'fn'];
 export const binops = ['<', '>', '<=', '>=', '!=', '==', '+', '-', '*', '/', '^', '%', '=', '+=', '-=', '|=', '/=', '*='];
