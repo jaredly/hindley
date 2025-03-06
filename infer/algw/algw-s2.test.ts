@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test';
 import { js, lex } from '../../lang/lexer';
 import { fromMap } from '../../lang/nodes';
 import { parser } from '../../lang/algw-s2';
-import { inferExpr, resetState, Scheme, Tenv, tfns, Type, typeToString } from './algw-s2';
+import { builtinEnv, inferExpr, resetState, Scheme, Tenv, tfns, Type, typeToString } from './algw-s2';
 
 const tests: [string, string][] = [
     [`10`, `int`],
@@ -23,32 +23,34 @@ const tests: [string, string][] = [
     ],
 ];
 
-const builtinEnv: Tenv = {
-    aliases: {},
-    types: {},
-    constructors: {},
-    scope: {},
-};
-const concrete = (body: Type): Scheme => ({ vars: [], body });
-const generic = (vars: string[], body: Type): Scheme => ({ vars, body });
-const tint: Type = { type: 'con', name: 'int' };
-const tbool: Type = { type: 'con', name: 'bool' };
-const k: Type = { type: 'var', name: 'k' };
-const a: Type = { type: 'var', name: 'a' };
-const b: Type = { type: 'var', name: 'b' };
-const tapp = (target: Type, arg: Type): Type => ({ type: 'app', arg, target });
-const tcon = (name: string): Type => ({ type: 'con', name });
-builtinEnv.scope['null'] = concrete({ type: 'con', name: 'null' });
-builtinEnv.scope['true'] = concrete({ type: 'con', name: 'bool' });
-builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool' });
-builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint));
-builtinEnv.scope['-'] = concrete(tfns([tint, tint], tint));
-builtinEnv.scope['>'] = concrete(tfns([tint, tint], tbool));
-builtinEnv.scope['<'] = concrete(tfns([tint, tint], tint));
-builtinEnv.scope['='] = generic(['k'], tfns([k, k], tint));
-builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tapp(tcon(','), a), b)));
-builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(tapp(tcon(','), a), b) };
-// builtinEnv.scope['[]'] =
+const env = builtinEnv();
+
+// const builtinEnv: Tenv = {
+//     aliases: {},
+//     types: {},
+//     constructors: {},
+//     scope: {},
+// };
+// const concrete = (body: Type): Scheme => ({ vars: [], body });
+// const generic = (vars: string[], body: Type): Scheme => ({ vars, body });
+// const tint: Type = { type: 'con', name: 'int' };
+// const tbool: Type = { type: 'con', name: 'bool' };
+// const k: Type = { type: 'var', name: 'k' };
+// const a: Type = { type: 'var', name: 'a' };
+// const b: Type = { type: 'var', name: 'b' };
+// const tapp = (target: Type, arg: Type): Type => ({ type: 'app', arg, target });
+// const tcon = (name: string): Type => ({ type: 'con', name });
+// builtinEnv.scope['null'] = concrete({ type: 'con', name: 'null' });
+// builtinEnv.scope['true'] = concrete({ type: 'con', name: 'bool' });
+// builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool' });
+// builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint));
+// builtinEnv.scope['-'] = concrete(tfns([tint, tint], tint));
+// builtinEnv.scope['>'] = concrete(tfns([tint, tint], tbool));
+// builtinEnv.scope['<'] = concrete(tfns([tint, tint], tint));
+// builtinEnv.scope['='] = generic(['k'], tfns([k, k], tint));
+// builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tapp(tcon(','), a), b)));
+// builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(tapp(tcon(','), a), b) };
+// // builtinEnv.scope['[]'] =
 
 tests.forEach(([input, output]) => {
     test(input, () => {
@@ -60,7 +62,7 @@ tests.forEach(([input, output]) => {
         if (!parsed.result) throw new Error(`not parsed ${input}`);
         // console.log(parsed.result);
         resetState();
-        const res = inferExpr(builtinEnv, parsed.result);
+        const res = inferExpr(env, parsed.result);
         expect(typeToString(res)).toEqual(output);
         // expect(parsed.result).toEqual('');
     });

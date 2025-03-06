@@ -20,15 +20,15 @@ export const linksEqual = (one?: Link, two?: Link) => {
 export type TextSpan<Embed, Loc = string> =
     | { type: 'text'; text: string; loc: Loc }
     // Jump back to a normal node I guess
-    | { type: 'embed'; item: Embed; loc: Loc }
-    | { type: 'attachment'; attachment: string; display: 'name' | 'small' | 'large'; loc: Loc }
-    // I kinda forget what this was about? Maybe like letting you supply rich-text plugins or something
-    | { type: 'custom'; plugin: string; data: any; loc: Loc }
-    // How are these different from `embed`? Well these actually yoink the source
-    // of the referenced term and plop it in there.
-    // Embed would either be a ref to it, or duplicate the code
-    | { type: 'include'; id: string; hash: string; loc: Loc }
-    | { type: 'diff'; before: { id: string; hash: string }; after: { id: string; hash: string }; loc: Loc };
+    | { type: 'embed'; item: Embed; loc: Loc };
+// | { type: 'attachment'; attachment: string; display: 'name' | 'small' | 'large'; loc: Loc }
+// // I kinda forget what this was about? Maybe like letting you supply rich-text plugins or something
+// | { type: 'custom'; plugin: string; data: any; loc: Loc }
+// // How are these different from `embed`? Well these actually yoink the source
+// // of the referenced term and plop it in there.
+// // Embed would either be a ref to it, or duplicate the code
+// | { type: 'include'; id: string; hash: string; loc: Loc }
+// | { type: 'diff'; before: { id: string; hash: string }; after: { id: string; hash: string }; loc: Loc };
 
 export type RichKind =
     | { type: 'plain' }
@@ -57,7 +57,7 @@ export type ListKind<Tag> =
 export type Text<Loc> = { type: 'text'; spans: TextSpan<Loc>[]; loc: Loc };
 export type List<Loc> = {
     type: 'list';
-    kind: ListKind<NodeID>;
+    kind: Extract<ListKind<NodeID>, string>;
     // Whether the user has specified that it should be multiline.
     // If absent, multiline is calculated based on pretty-printing logic
     forceMultiline?: boolean;
@@ -79,7 +79,7 @@ export type Node = NodeT<NodeID>;
 
 export type RecList<Loc> = {
     type: 'list';
-    kind: ListKind<RecNodeT<Loc>>;
+    kind: Extract<ListKind<RecNodeT<Loc>>, string>;
     // Whether the user has specified that it should be multiline.
     // If absent, multiline is calculated based on pretty-printing logic
     forceMultiline?: boolean;
@@ -182,14 +182,14 @@ export const fromMap = <Loc>(id: NodeID, nodes: Nodes, toLoc: (l: NodeID) => Loc
             return {
                 ...node,
                 loc,
-                kind:
-                    typeof node.kind !== 'string' && node.kind.type === 'tag'
-                        ? {
-                              ...node.kind,
-                              node: fromMap(node.kind.node, nodes, toLoc),
-                              attributes: node.kind.attributes != null ? fromMap(node.kind.attributes, nodes, toLoc) : undefined,
-                          }
-                        : node.kind,
+                kind: node.kind,
+                // typeof node.kind !== 'string' && node.kind.type === 'tag'
+                //     ? {
+                //           ...node.kind,
+                //           node: fromMap(node.kind.node, nodes, toLoc),
+                //           attributes: node.kind.attributes != null ? fromMap(node.kind.attributes, nodes, toLoc) : undefined,
+                //       }
+                //     : node.kind,
                 children: node.children.map((id) => fromMap(id, nodes, toLoc)),
             };
         case 'table':
@@ -223,14 +223,14 @@ export const fromRec = <Loc>(node: RecNodeT<Loc>, map: Nodes, get: (l: Loc, node
             map[loc] = {
                 ...node,
                 loc,
-                kind:
-                    typeof node.kind !== 'string' && node.kind.type === 'tag'
-                        ? {
-                              ...node.kind,
-                              node: fromRec(node.kind.node, map, get, inner),
-                              attributes: node.kind.attributes != null ? fromRec(node.kind.attributes, map, get, inner) : undefined,
-                          }
-                        : node.kind,
+                kind: node.kind,
+                // typeof node.kind !== 'string' && node.kind.type === 'tag'
+                //     ? {
+                //           ...node.kind,
+                //           node: fromRec(node.kind.node, map, get, inner),
+                //           attributes: node.kind.attributes != null ? fromRec(node.kind.attributes, map, get, inner) : undefined,
+                //       }
+                //     : node.kind,
                 children: node.children.map((id) => fromRec(id, map, get, inner)),
             };
             return loc;
@@ -264,14 +264,14 @@ export const mapLocs = <From, To>(node: RecNodeT<From>, get: (l: From, path: To[
             return {
                 ...node,
                 loc,
-                kind:
-                    typeof node.kind !== 'string' && node.kind.type === 'tag'
-                        ? {
-                              ...node.kind,
-                              node: mapLocs(node.kind.node, get, inner),
-                              attributes: node.kind.attributes != null ? mapLocs(node.kind.attributes, get, inner) : undefined,
-                          }
-                        : node.kind,
+                kind: node.kind,
+                // typeof node.kind !== 'string' && node.kind.type === 'tag'
+                //     ? {
+                //           ...node.kind,
+                //           node: mapLocs(node.kind.node, get, inner),
+                //           attributes: node.kind.attributes != null ? mapLocs(node.kind.attributes, get, inner) : undefined,
+                //       }
+                //     : node.kind,
                 children: node.children.map((id) => mapLocs(id, get, inner)),
             };
         case 'table':
@@ -298,12 +298,12 @@ export const shape = (node: RecNodeT<unknown>): string => {
             if (typeof node.kind === 'string') {
                 return `list[${node.kind}](${node.children.map(shape).join(' ')}${ml})`;
             }
-            if (node.kind.type === 'tag') {
-                return `xml[${shape(node.kind.node)}${node.kind.attributes ? ' ' + shape(node.kind.attributes) : ''}](${node.children
-                    .map(shape)
-                    .join(' ')}${ml})`;
-            }
-            return `list[${node.kind.type}](${node.children.map(shape).join(' ')}${ml})`;
+        // if (node.kind.type === 'tag') {
+        //     return `xml[${shape(node.kind.node)}${node.kind.attributes ? ' ' + shape(node.kind.attributes) : ''}](${node.children
+        //         .map(shape)
+        //         .join(' ')}${ml})`;
+        // }
+        // return `list[${node.kind.type}](${node.children.map(shape).join(' ')}${ml})`;
         case 'table':
             const mi = node.rows.map((row) => row.map(shape).join(',')).join(';');
             if (node.kind === 'curly') {
@@ -321,8 +321,8 @@ export const shape = (node: RecNodeT<unknown>): string => {
                             return span.text;
                         case 'embed':
                             return `\${${shape(span.item)}}`;
-                        default:
-                            throw new Error('not shaping a ' + span.type);
+                        // default:
+                        //     throw new Error('not shaping a ' + span.type);
                     }
                 })
                 .join('|')})`;

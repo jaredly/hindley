@@ -57,7 +57,7 @@ howww do I feel about /grouping/ multis?
 hmm. it does seem like a good idea.
 
 ```
-multi algidk <a>{
+multi algebra <a>{
   + (a, a) -> a
   - (a, a) -> a
 }
@@ -66,6 +66,12 @@ multi monad <a * -> *>{
   map <m, n>(value: a<m>, f: m -> n) -> a<n>
 }
 ```
+
+Ok, so: for int vs float literals...
+we'd do the same thing, right?
+assign type variables to each, and let them resolve how they will...
+and then at the end, if there are any unbound, we bind them to `int` as the default.
+we'd want to do that before we do the `multi` resolution.
 
 
 

@@ -31,27 +31,27 @@ const rebuild = bounce(10, () => {
 });
 
 const service = Bun.serve({
-    port: 3151,
+    port: 3152,
     async fetch(req) {
         let pathname = new URL(req.url).pathname;
         if (pathname === '/') {
             pathname = '/index.html';
         }
-        if (pathname === '/favicon.png') {
-            return new Response(Bun.file('../../../web/favicon.png'));
-        }
-        if (pathname.startsWith('/fonts/')) {
-            const path = join('../../../web', pathname.slice(1));
-            return new Response(Bun.file(path));
-        }
+        // if (pathname === '/favicon.png') {
+        //     return new Response(Bun.file('./favicon.png'));
+        // }
+        // if (pathname.startsWith('/fonts/')) {
+        //     const path = join('../../../web', pathname.slice(1));
+        //     return new Response(Bun.file(path));
+        // }
         const file = Bun.file(join('.', pathname));
         return new Response(file);
     },
 });
 
-const ignore = ['.git/', 'node_modules/', '.ow-data/', '.cli.sess', 'worker.js', 'run.js', 'keyboard/ui/run.js'];
+const ignore = ['.git/', 'node_modules/', 'worker.js', 'run.js'];
 
-watch('../..', { recursive: true }, (event, filename) => {
+watch('..', { recursive: true }, (event, filename) => {
     if (ignore.some((n) => filename!.startsWith(n))) {
         // ignore
         return;
