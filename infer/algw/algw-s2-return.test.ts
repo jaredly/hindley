@@ -4,7 +4,7 @@ import { fromMap } from '../../lang/nodes';
 import { parser } from '../../lang/algw-s2-return';
 import { builtinEnv, inferExpr, inferStmt, resetState, Scheme, Tenv, tfns, Type, typeToString } from './algw-s2-return';
 
-const tests: [string, string][] = [
+const tests: ([string, string] | [string, string, true])[] = [
     [`10`, `int`],
     [`{let x = 10; x}`, 'int'],
     [`(1, 2)`, '(int, int)'],
@@ -25,6 +25,16 @@ const tests: [string, string][] = [
     ],
     ['[1,2]', 'array(int)'],
     [
+        `(a) => {
+        if (true) {
+            return [a]
+        } else {
+            return [1]
+         }
+        }`,
+        '(int) => array(int)',
+    ],
+    [
         `{
             let quicksort = (arr) => {
                 if (arr.length <= 1) {
@@ -37,7 +47,7 @@ const tests: [string, string][] = [
             };
             quicksort
         }`,
-        '(array(k:4:14)) => array(k:4:14)',
+        '(array(int)) => array(int)',
     ],
     // [
     //     `switch (true) {:
@@ -53,8 +63,8 @@ const tests: [string, string][] = [
 
 const env = builtinEnv();
 
-tests.forEach(([input, output]) => {
-    test(input, () => {
+tests.forEach(([input, output, only]) => {
+    (only ? test.only : test)(input, () => {
         const cst = lex(js, input);
         // console.log(JSON.stringify(cst, null, 2));
         const node = fromMap(cst.roots[0], cst.nodes, (idx) => ({ id: '', idx }));

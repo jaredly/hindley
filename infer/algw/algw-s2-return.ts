@@ -54,7 +54,7 @@ export type Stmt =
 export type Spread<T> = { type: 'spread'; inner: T; src: Src };
 export type Expr =
     | Block
-    | { type: 'if'; cond: Expr; yes: Block; no?: Block; src: Src }
+    | { type: 'if'; cond: Expr; yes: Block; no?: Expr; src: Src }
     | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src }
     | { type: 'array'; items: (Expr | Spread<Expr>)[]; src: Src }
     | { type: 'prim'; prim: Prim; src: Src }
@@ -373,6 +373,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
         case 'str':
             return { value: { type: 'con', name: 'string' } };
         case 'lambda':
+            if (!expr.args.length) {
+                throw new Error(`cant have an empty lambda sry`);
+            }
             if (expr.args.length === 1) {
                 let argType: Type, boundEnv: Tenv;
                 if (expr.args[0].type === 'var') {
@@ -445,7 +448,10 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
             const one = inferExpr(tenv, expr.yes, true);
             const two = expr.no ? inferExpr(tenv, expr.no, true) : undefined;
             if (one.return && two?.return) {
+                console.log('both have a return', one.return, two.return);
                 unify(one.return, two.return);
+            } else {
+                console.log('not both have rteturn');
             }
             const twov = two ? two.value : { type: 'con' as const, name: 'void' };
             if (!asStmt && one.value && twov) {
@@ -477,7 +483,11 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
                 }
                 value = res.value;
             }
-            return { return: result, partial, value };
+            return {
+                return: result ? typeApply(globalState.subst, result) : undefined,
+                partial,
+                value: value ? typeApply(globalState.subst, value) : null,
+            };
         }
 
         // case 'let': {

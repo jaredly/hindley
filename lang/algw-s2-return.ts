@@ -252,6 +252,16 @@ const rules = {
     ),
     ...exprs,
     bop: or(...binops.map((m) => kwd(m, 'bop'))),
+    if: tx<Expr>(
+        seq(kwd('if'), ref('expr', 'cond'), ref('block', 'yes'), opt(seq(kwd('else'), group('no', or(ref('if'), ref('block')))))),
+        (ctx, src) => ({
+            type: 'if',
+            cond: ctx.ref<Expr>('cond'),
+            yes: ctx.ref<Block>('yes'),
+            no: ctx.ref<undefined | Expr>('no'),
+            src,
+        }),
+    ),
     'expr ': or(
         tx<Expr>(seq(list('round', group('args', star(ref('pat')))), kwd('=>'), group('body', or(ref('block'), ref('expr ')))), (ctx, src) => ({
             type: 'lambda',
@@ -259,17 +269,7 @@ const rules = {
             body: ctx.ref<Expr>('body'),
             src,
         })),
-
-        tx<Expr>(
-            seq(kwd('if'), ref('expr', 'cond'), ref('block', 'yes'), opt(seq(kwd('else'), group('no', or(ref('if'), ref('block')))))),
-            (ctx, src) => ({
-                type: 'if',
-                cond: ctx.ref<Expr>('cond'),
-                yes: ctx.ref<Block>('yes'),
-                no: ctx.ref<undefined | Block>('no'),
-                src,
-            }),
-        ),
+        ref('if'),
 
         tx<Expr>(
             seq(
