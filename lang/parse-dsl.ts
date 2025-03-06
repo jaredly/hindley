@@ -98,7 +98,7 @@ const log = (...values: any[]): undefined => {
     // console.log('>'.padStart(2 + indent), ...values);
 };
 
-type Result = { value?: any; consumed: number };
+type Result<T> = { value?: T; consumed: number };
 
 export const show = (matcher: Rule<any>): string => {
     switch (matcher.type) {
@@ -136,7 +136,7 @@ export const show = (matcher: Rule<any>): string => {
     }
 };
 
-export const match = <T>(rule: Rule<T>, ctx: Ctx, parent: MatchParent, at: number): undefined | null | Result => {
+export const match = <T>(rule: Rule<T>, ctx: Ctx, parent: MatchParent, at: number): undefined | null | Result<T> => {
     if (ctx.rules.comment) {
         const { comment, ...without } = ctx.rules;
         const cm = match_(ctx.rules.comment, { ...ctx, rules: without }, parent, at);
@@ -157,7 +157,7 @@ export const match = <T>(rule: Rule<T>, ctx: Ctx, parent: MatchParent, at: numbe
 };
 
 // TODO: track a pathhhh
-export const match_ = (rule: Rule<any>, ctx: Ctx, parent: MatchParent, at: number): undefined | null | Result => {
+export const match_ = (rule: Rule<any>, ctx: Ctx, parent: MatchParent, at: number): undefined | null | Result<any> => {
     const node = parent.nodes[at];
     switch (rule.type) {
         case 'kwd':

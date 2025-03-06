@@ -185,7 +185,7 @@ export const lex = (config: Config, input: string) => {
         }
     };
 
-    const addSep = () => {
+    const addSep = (newline: boolean) => {
         let parent = getParent();
         if (parent.type === 'text') {
             throw new Error(`cant sep in text embed`);
@@ -204,6 +204,10 @@ export const lex = (config: Config, input: string) => {
             if (parent.rows[parent.rows.length - 1]?.length === 0) return;
             parent.rows.push([]);
             return;
+        }
+
+        if (newline) {
+            parent.forceMultiline = true;
         }
 
         parent.children.push('');
@@ -317,7 +321,7 @@ export const lex = (config: Config, input: string) => {
                 addSpace();
                 continue;
             case 'sep':
-                addSep();
+                addSep(char === '\n');
                 continue;
             case 'string': {
                 const loc: NodeID = ts();

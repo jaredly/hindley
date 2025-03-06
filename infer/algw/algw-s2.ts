@@ -21,6 +21,7 @@ export const builtinEnv = () => {
     builtinEnv.scope['null'] = concrete({ type: 'con', name: 'null' });
     builtinEnv.scope['true'] = concrete({ type: 'con', name: 'bool' });
     builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool' });
+    builtinEnv.scope['length'] = generic(['k'], tfn(tapp(tcon('array'), k), tint));
     builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['-'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['>'] = concrete(tfns([tint, tint], tbool));
@@ -343,6 +344,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             scope = scopeApply(globalState.subst, scope);
             const boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
             const bodyType = inferExpr(boundEnv, expr.body);
+            console.log('body', bodyType, expr.body);
             return bodyType;
         }
         case 'match': {
@@ -362,8 +364,8 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             // checkExhaustiveness(tenv, typeApply(globalState.subst, targetType), expr.cases.map(k => k.pat))
             return resultType;
         }
-        // throw new Error('not yet folks');
     }
+    throw new Error('Unknown expr type: ' + (expr as any).type);
 };
 
 const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
