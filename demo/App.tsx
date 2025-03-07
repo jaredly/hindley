@@ -10,6 +10,7 @@ import {
     inferStmt,
     resetState,
     Stmt,
+    Tenv,
     Type,
     typeApply,
     typeFree,
@@ -108,16 +109,37 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
         <span
             data-id={id}
             style={{
-                borderWidth: 3,
+                borderWidth: 1,
                 borderColor: ctx.byLoc[id] ? (freeVbls.length ? 'red' : 'green') : 'transparent',
                 borderRadius: 4,
                 borderStyle: 'solid',
+                // backgroundColor: 'rgba(255,0,0,0.01)',
                 display: !multiline ? 'inline-block' : 'inline',
+                // alignItems: 'flex-start',
             }}
         >
             {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
-            {children}
-            {/* <span style={{ fontSize: '80%', color: '#666' }}>{t ? typeToString(t) : ''}</span> */}
+            <span
+                style={
+                    multiline
+                        ? { verticalAlign: 'top' }
+                        : {
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                          }
+                }
+            >
+                {children}
+            </span>
+            {/* <span
+                style={{
+                    display: multiline ? 'inline' : 'block',
+                    fontSize: '80%',
+                    color: '#666',
+                }}
+            >
+                {t ? typeToString(t) : ''}
+            </span> */}
         </span>
     );
 };
@@ -160,30 +182,14 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
                 const parts = partition(ctx, node.children);
                 return (
                     <span style={style}>
-                        {/* {node.children.map((i) => (
-                            <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />
-                        ))} */}
                         <RenderGrouped spaced={false} grouped={parts} ctx={ctx} />
                     </span>
                 );
             }
             if (node.kind === 'spaced') {
-                // return (
-                //     <span style={style}>
-                //         {interleave(
-                //             node.children.map((i) => <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />),
-                //             (i) => (
-                //                 <span key={'mid-' + i}>&nbsp;</span>
-                //             ),
-                //         )}
-                //     </span>
-                // );
                 const parts = partition(ctx, node.children);
                 return (
                     <span style={style}>
-                        {/* {node.children.map((i) => (
-                            <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />
-                        ))} */}
                         <RenderGrouped spaced grouped={parts} ctx={ctx} />
                     </span>
                 );
@@ -211,7 +217,7 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 };
 
 export const App = () => {
-    const [at, setAt] = useState(0);
+    const [at, setAt] = useState(glob.events.length / 2);
 
     const multis = useMemo(() => {
         const multis: Record<string, true> = {};
@@ -227,7 +233,7 @@ export const App = () => {
         return multis;
     }, [cst]);
 
-    const { byLoc, subst, spans, types } = useMemo(() => {
+    const { byLoc, subst, spans, types, scope } = useMemo(() => {
         const spans: Record<string, string[]> = {};
         glob.events.forEach((evt) => {
             if (evt.type === 'infer' && evt.src.right) {
@@ -239,7 +245,8 @@ export const App = () => {
         const subst: { name: string; type: Type }[] = [];
         const types: { src: Src; type: Type }[] = [];
         const smap: Record<string, Type> = {};
-        for (let i = 0; i < at; i++) {
+        let scope: Tenv['scope'] = {};
+        for (let i = 0; i <= at; i++) {
             const evt = glob.events[i];
             if (evt.type === 'infer') {
                 if (evt.src.right) {
@@ -256,6 +263,9 @@ export const App = () => {
                 Object.keys(smap).forEach((k) => (smap[k] = typeApply({ [evt.name]: evt.value }, smap[k])));
                 smap[evt.name] = evt.value;
             }
+            if (evt.type === 'scope') {
+                scope = evt.scope;
+            }
         }
         subst.forEach((s) => {
             s.type = typeApply(smap, s.type);
@@ -263,7 +273,7 @@ export const App = () => {
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
-        return { byLoc, subst, spans, types };
+        return { byLoc, subst, spans, types, scope };
     }, [at]);
 
     return (
@@ -288,8 +298,18 @@ export const App = () => {
                     ))}
                 </div>
             </div>
+            <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(glob.events[at])}</div>
+            <div style={{ whiteSpace: 'pre', display: 'grid', gridTemplateColumns: 'min-content min-content min-content', alignSelf: 'flex-start' }}>
+                {Object.entries(scope).map(([key, scheme]) => (
+                    <div key={key} style={{ display: 'contents' }}>
+                        <div>{key}</div>
+                        <div>{scheme.vars.length ? '<' + scheme.vars.join(',') + '>' : ''}</div>
+                        <div>{typeToString(scheme.body)}</div>
+                    </div>
+                ))}
+            </div>
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
-            <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div>
+            {/* <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div> */}
         </div>
     );
 };
@@ -297,19 +317,36 @@ export const App = () => {
 const ungroup = (group: Grouped): string[] => group.children.flatMap((child) => (typeof child === 'string' ? child : ungroup(child)));
 
 const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; spaced: boolean }): ReactElement => {
-    const children: ReactElement[] = grouped.children.map((item, i) =>
+    let children: ReactElement[] = grouped.children.map((item, i) =>
         typeof item === 'string' ? (
             <RenderNode key={item} node={ctx.nodes[item]} ctx={ctx} />
         ) : (
             <RenderGrouped key={i} grouped={item} ctx={ctx} spaced={spaced} />
         ),
     );
+    if (spaced) {
+        children = interleave(children, (i) => <span key={'int-' + i}>&nbsp;</span>);
+    }
 
+    const multi = ungroup(grouped).some((id) => ctx.multis[id]);
     if (!grouped.end) {
-        return <>{children}</>;
+        return (
+            <span
+                style={
+                    multi
+                        ? {}
+                        : {
+                              display: 'inline-flex',
+                              alignItems: 'flex-start',
+                          }
+                }
+            >
+                {children}
+            </span>
+        );
     }
     return (
-        <Wrap id={grouped.id!} ctx={ctx} multiline={ungroup(grouped).some((id) => ctx.multis[id])}>
+        <Wrap id={grouped.id!} ctx={ctx} multiline={multi}>
             {children as any}
         </Wrap>
     );

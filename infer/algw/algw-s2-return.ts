@@ -22,7 +22,7 @@ export const builtinEnv = () => {
     builtinEnv.scope['true'] = concrete({ type: 'con', name: 'bool' });
     builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool' });
     builtinEnv.scope['length'] = generic(['k'], tfn(tapp(tcon('array'), k), tint));
-    builtinEnv.scope['index'] = generic(['k'], tfns([tapp(tcon('array'), k), tint], tint));
+    builtinEnv.scope['index'] = generic(['k'], tfns([tapp(tcon('array'), k), tint], k));
     builtinEnv.scope['push'] = generic(['k'], tfns([tapp(tcon('array'), k), k], tcon('void')));
     builtinEnv.scope['concat'] = generic(['k'], tfns([tapp(tcon('array'), k), tapp(tcon('array'), k)], tapp(tcon('array'), k)));
     builtinEnv.scope['[]'] = generic(['k'], tapp(tcon('array'), k));
@@ -213,7 +213,7 @@ export const generalize = (tenv: Tenv, t: Type): Scheme => {
     };
 };
 
-type Event = { type: 'subst'; name: string; value: Type } | { type: 'infer'; src: Src; value: Type };
+type Event = { type: 'subst'; name: string; value: Type } | { type: 'scope'; scope: Tenv['scope'] } | { type: 'infer'; src: Src; value: Type };
 
 type State = { nextId: number; subst: Subst; events: Event[] };
 
@@ -282,6 +282,7 @@ export const unify = (one: Type, two: Type) => {
 };
 
 export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
+    globalState.events.push({ type: 'scope', scope: tenv.scope });
     // const old = globalState.subst;
     // globalState.subst = {};
     const type = inferExprInner(tenv, expr, asStmt);
