@@ -2,7 +2,7 @@
 
 export type NodeID = string;
 
-export type Loc = { id: string; idx: NodeID };
+export type Loc = NodeID;
 
 // ccls = "char class" i.e. what kind of punctuation. 0 = normal text
 export type Id<Loc> = { type: 'id'; text: string; loc: Loc; ccls?: number };

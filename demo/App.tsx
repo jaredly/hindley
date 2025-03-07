@@ -23,7 +23,7 @@ return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
 // const text = `(x) => {let (a, _) = x; a(2)}`;
 const cst = lex(js, text);
 // console.log(JSON.stringify(cst, null, 2));
-const node = fromMap(cst.roots[0], cst.nodes, (idx) => ({ id: '', idx }));
+const node = fromMap(cst.roots[0], cst.nodes, (idx) => idx);
 // console.log(JSON.stringify(node, null, 2));
 const parsed = parser.parse(node);
 if (!parsed.result) throw new Error(`not parsed ${text}`);

@@ -323,7 +323,7 @@ export const parser: TestParser<Expr> = {
             meta: {},
             autocomplete: cursor != null ? { loc: cursor, concrete: [], kinds: [] } : undefined,
         };
-        const res = match<Expr | BareLet>({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: { id: '', idx: '' } }, 0);
+        const res = match<Expr | BareLet>({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: '' }, 0);
         if (res?.value?.type === 'bare-let') {
             res.value = {
                 type: 'let',

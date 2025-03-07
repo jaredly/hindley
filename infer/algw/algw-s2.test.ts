@@ -21,13 +21,7 @@ const tests: [string, string][] = [
         :}`,
         'int',
     ],
-    [
-        `(arr) => {
-    let x = arr.length;
-    arr
-}`,
-        '(array(k:2)) => array(k:2)',
-    ],
+    [`(arr) => { let x = arr.length; arr }`, '(array(k:2)) => array(k:2)'],
 ];
 
 const env = builtinEnv();
@@ -36,7 +30,7 @@ tests.forEach(([input, output]) => {
     test(input, () => {
         const cst = lex(js, input);
         // console.log(JSON.stringify(cst, null, 2));
-        const node = fromMap(cst.roots[0], cst.nodes, (idx) => ({ id: '', idx }));
+        const node = fromMap(cst.roots[0], cst.nodes, (idx) => idx);
         // console.log(JSON.stringify(node, null, 2));
         const parsed = parser.parse(node);
         if (!parsed.result) throw new Error(`not parsed ${input}`);

@@ -229,7 +229,7 @@ export const parser: TestParser = {
             meta: {},
             autocomplete: cursor != null ? { loc: cursor, concrete: [], kinds: [] } : undefined,
         };
-        const res = match({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: { id: '', idx: '' } }, 0);
+        const res = match({ type: 'ref', name: 'stmt' }, c, { nodes: [node], loc: '' }, 0);
 
         return {
             result: res?.value,
