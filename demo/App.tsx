@@ -1,4 +1,4 @@
-import React, { JSX, useMemo, useState } from 'react';
+import React, { JSX, ReactElement, useMemo, useState } from 'react';
 import { js, lex } from '../lang/lexer';
 import { fromMap, Node, Nodes } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
@@ -12,8 +12,10 @@ import {
     Stmt,
     Type,
     typeApply,
+    typeFree,
     typeToString,
 } from '../infer/algw/algw-s2-return';
+import { Src } from '../lang/parse-dsl';
 
 const env = builtinEnv();
 const text = `{\nlet quicksort = (arr) => {
@@ -72,7 +74,12 @@ export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
     return res;
 };
 
-type Ctx = { nodes: Nodes; parsed: ParseResult<Stmt>; byLoc: Record<string, Type> };
+type Ctx = {
+    nodes: Nodes;
+    parsed: ParseResult<Stmt>;
+    byLoc: Record<string, Type>;
+    spans: Record<string, string[]>;
+};
 
 const styles = {
     kwd: { color: 'green' },
@@ -87,21 +94,22 @@ const styles = {
 //     }
 // });
 
-const Wrap = ({ children, id, ctx }: { children: JSX.Element; id: string; ctx: Ctx }) => {
+const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
     const t = ctx.byLoc[id];
+    const freeVbls = t ? typeFree(t) : [];
     return (
         <span
-            style={
-                {
-                    // borderWidth: 3,
-                    // borderColor: ctx.byLoc[id] ? 'red' : 'transparent',
-                    // borderRadius: 4,
-                    // borderStyle: 'solid',
-                }
-            }
+            data-id={id}
+            style={{
+                borderWidth: 3,
+                borderColor: ctx.byLoc[id] ? (freeVbls.length ? 'red' : 'green') : 'transparent',
+                borderRadius: 4,
+                borderStyle: 'solid',
+                display: !multiline ? 'inline-block' : 'inline',
+            }}
         >
             {children}
-            <span style={{ fontSize: '80%', color: '#666' }}>{t ? typeToString(t) : ''}</span>
+            {/* <span style={{ fontSize: '80%', color: '#666' }}>{t ? typeToString(t) : ''}</span> */}
         </span>
     );
 };
@@ -109,7 +117,7 @@ const Wrap = ({ children, id, ctx }: { children: JSX.Element; id: string; ctx: C
 const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     // const ty = t ? typeApply(glob.subst, t) : null;
     return (
-        <Wrap id={node.loc} ctx={ctx}>
+        <Wrap id={node.loc} ctx={ctx} multiline={node.type === 'list' && node.forceMultiline}>
             <RenderNode_ node={node} ctx={ctx} />
         </Wrap>
     );
@@ -141,23 +149,34 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
             );
         case 'list':
             if (node.kind === 'smooshed') {
+                const parts = partition(ctx, node.children);
                 return (
                     <span style={style}>
-                        {node.children.map((i) => (
+                        {/* {node.children.map((i) => (
                             <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />
-                        ))}
+                        ))} */}
+                        <RenderGrouped spaced={false} grouped={parts} ctx={ctx} />
                     </span>
                 );
             }
             if (node.kind === 'spaced') {
+                // return (
+                //     <span style={style}>
+                //         {interleave(
+                //             node.children.map((i) => <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />),
+                //             (i) => (
+                //                 <span key={'mid-' + i}>&nbsp;</span>
+                //             ),
+                //         )}
+                //     </span>
+                // );
+                const parts = partition(ctx, node.children);
                 return (
                     <span style={style}>
-                        {interleave(
-                            node.children.map((i) => <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />),
-                            (i) => (
-                                <span key={'mid-' + i}>&nbsp;</span>
-                            ),
-                        )}
+                        {/* {node.children.map((i) => (
+                            <RenderNode key={i} node={ctx.nodes[i]} ctx={ctx} />
+                        ))} */}
+                        <RenderGrouped spaced grouped={parts} ctx={ctx} />
                     </span>
                 );
             }
@@ -186,14 +205,23 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 export const App = () => {
     const [at, setAt] = useState(0);
 
-    const { byLoc, subst } = useMemo(() => {
+    const { byLoc, subst, spans, types } = useMemo(() => {
+        const spans: Record<string, string[]> = {};
         const byLoc: Record<string, Type> = {};
         const subst: { name: string; type: Type }[] = [];
+        const types: { src: Src; type: Type }[] = [];
         const smap: Record<string, Type> = {};
         for (let i = 0; i < at; i++) {
             const evt = glob.events[i];
-            if (evt.type === 'infer' && !evt.src.right) {
-                byLoc[evt.src.left] = evt.value;
+            if (evt.type === 'infer') {
+                if (evt.src.right) {
+                    if (!spans[evt.src.left]) spans[evt.src.left] = [];
+                    if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
+                    byLoc[evt.src.left + ':' + evt.src.right] = evt.value;
+                } else {
+                    byLoc[evt.src.left] = evt.value;
+                }
+                types.push({ src: evt.src, type: evt.value });
             }
             if (evt.type === 'subst') {
                 subst.push({ name: evt.name, type: evt.value });
@@ -207,18 +235,20 @@ export const App = () => {
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
-        return { byLoc, subst };
+        return { byLoc, subst, spans, types };
     }, [at]);
 
     return (
         <div className="m-2">
-            Hello
-            <input type="range" min="0" max={glob.events.length} value={at} onChange={(evt) => setAt(+evt.target.value)} />
+            Hindley Milner visualization
+            <div>
+                <input type="range" min="0" max={glob.events.length} value={at} onChange={(evt) => setAt(+evt.target.value)} />
+            </div>
             <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div>
                     {cst.roots.map((root) => (
-                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ nodes: cst.nodes, parsed, byLoc }} />
+                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ spans, nodes: cst.nodes, parsed, byLoc }} />
                     ))}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', justifyContent: 'flex-start', gridAutoRows: 'min-content' }}>
@@ -231,6 +261,57 @@ export const App = () => {
                 </div>
             </div>
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
+            <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div>
         </div>
     );
+};
+
+const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; spaced: boolean }): ReactElement => {
+    const children: ReactElement[] = grouped.children.map((item, i) =>
+        typeof item === 'string' ? (
+            <RenderNode key={item} node={ctx.nodes[item]} ctx={ctx} />
+        ) : (
+            <RenderGrouped key={i} grouped={item} ctx={ctx} spaced={spaced} />
+        ),
+    );
+
+    if (!grouped.end) {
+        return <>{children}</>;
+    }
+    return (
+        <Wrap id={grouped.id!} ctx={ctx} multiline={false}>
+            {children as any}
+        </Wrap>
+    );
+};
+
+type Grouped = { id?: string; end?: string; children: (string | Grouped)[] };
+
+const partition = (ctx: Ctx, children: string[]) => {
+    // const groups: Grouped = {children: []}
+    const stack: Grouped[] = [{ children: [] }];
+    for (let i = 0; i < children.length; i++) {
+        const current = stack[stack.length - 1];
+        const child = children[i];
+        if (!ctx.spans[child]) {
+            current.children.push(child);
+            while (stack[stack.length - 1].end === child) {
+                stack.pop();
+            }
+            continue;
+        }
+        const spans = ctx.spans[child].map((id) => ({ id, idx: children.indexOf(id) })).sort((a, b) => b.idx - a.idx);
+
+        spans.forEach(({ id, idx }) => {
+            const inner: Grouped = { end: id, children: [], id: `${child}:${id}` };
+            stack[stack.length - 1].children.push(inner);
+            stack.push(inner);
+        });
+        stack[stack.length - 1].children.push(child);
+    }
+    if (stack.length !== 1) {
+        console.log(stack);
+        throw new Error('didnt clen up all stacks');
+    }
+    return stack[0];
 };
