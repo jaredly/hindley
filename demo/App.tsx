@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { JSX, useMemo, useState } from 'react';
 import { js, lex } from '../lang/lexer';
 import { fromMap, Node, Nodes } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
@@ -87,14 +87,31 @@ const styles = {
 //     }
 // });
 
+const Wrap = ({ children, id, ctx }: { children: JSX.Element; id: string; ctx: Ctx }) => {
+    const t = ctx.byLoc[id];
+    return (
+        <span
+            style={
+                {
+                    // borderWidth: 3,
+                    // borderColor: ctx.byLoc[id] ? 'red' : 'transparent',
+                    // borderRadius: 4,
+                    // borderStyle: 'solid',
+                }
+            }
+        >
+            {children}
+            <span style={{ fontSize: '80%', color: '#666' }}>{t ? typeToString(t) : ''}</span>
+        </span>
+    );
+};
+
 const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
-    const t = ctx.byLoc[node.loc];
     // const ty = t ? typeApply(glob.subst, t) : null;
     return (
-        <span>
-            <span style={{ fontSize: '80%', color: '#666' }}>{t ? typeToString(t) : ''}</span>
+        <Wrap id={node.loc} ctx={ctx}>
             <RenderNode_ node={node} ctx={ctx} />
-        </span>
+        </Wrap>
     );
 };
 
@@ -180,9 +197,13 @@ export const App = () => {
             }
             if (evt.type === 'subst') {
                 subst.push({ name: evt.name, type: evt.value });
+                Object.keys(smap).forEach((k) => (smap[k] = typeApply({ [evt.name]: evt.value }, smap[k])));
                 smap[evt.name] = evt.value;
             }
         }
+        subst.forEach((s) => {
+            s.type = typeApply(smap, s.type);
+        });
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });

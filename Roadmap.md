@@ -13,6 +13,12 @@ this is complicated.
 IF an `if` is being used as an `expr`, then the `values` of the arms need to match.
 BUT if it's being used as a stmt, then they don't.
 
+#
+
+ok, so
+I want to do a border wrap around nodes, and collections of nodes.
+And I also want to do a tooltip, or maybe have a thing underneath it? not sure yet.
+
 
 #
 
