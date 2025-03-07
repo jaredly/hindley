@@ -1,25 +1,25 @@
 import React from 'react';
 import { js, lex } from '../lang/lexer';
 import { fromMap, Node, Nodes } from '../lang/nodes';
-import { parser, ParseResult } from '../lang/algw-s2';
-import { builtinEnv, Expr, inferExpr, resetState, typeToString } from '../infer/algw/algw-s2';
+import { parser, ParseResult } from '../lang/algw-s2-return';
+import { builtinEnv, Expr, inferExpr, inferStmt, resetState, Stmt, typeToString } from '../infer/algw/algw-s2-return';
 
 const env = builtinEnv();
-const text = `let quicksort = (arr) => {
+const text = `{\nlet quicksort = (arr) => {
 if (arr.length <= 1) {
 return arr}
 let pivot = arr[arr.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < arr.length; i++) {
+for (let i = 0; i < arr.length; i += 1) {
 if (arr[i] < pivot) {
     leftArr.push(arr[i])
 } else {
     rightArr.push(arr[i])
 }
 }
-return [...quickSort(leftArr), pivot, ...quickSort(rightArr)]
-}`;
+return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
+};quicksort}`;
 // const text = `(x) => {let (a, _) = x; a(2)}`;
 const cst = lex(js, text);
 // console.log(JSON.stringify(cst, null, 2));
@@ -29,10 +29,18 @@ const parsed = parser.parse(node);
 if (!parsed.result) throw new Error(`not parsed ${text}`);
 // console.log(parsed.result);
 resetState();
-const res = inferExpr(env, parsed.result);
 
 console.log(parsed);
 console.log(node);
+
+let res;
+try {
+    res = inferStmt(env, parsed.result);
+} catch (err) {
+    console.log('bad inference', err);
+    res = null;
+}
+
 console.log('res', res);
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
@@ -51,7 +59,7 @@ export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
     return res;
 };
 
-type Ctx = { nodes: Nodes; parsed: ParseResult<Expr> };
+type Ctx = { nodes: Nodes; parsed: ParseResult<Stmt> };
 
 const styles = {
     kwd: { color: 'green' },
@@ -113,7 +121,7 @@ const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
                         node.children.map((id) => (
                             <span key={id} style={node.forceMultiline ? { marginLeft: 16, display: 'block' } : undefined}>
                                 <RenderNode key={id} node={ctx.nodes[id]} ctx={ctx} />
-                                {node.forceMultiline ? (node.kind === 'curly' ? ';' : ',') : null}
+                                {node.forceMultiline ? (node.kind === 'curly' ? null : ',') : null}
                             </span>
                         )),
                         (i) => (node.forceMultiline ? null : <span key={'mid-' + i}>{node.kind === 'curly' ? '; ' : ', '}</span>),
@@ -131,13 +139,12 @@ export const App = () => {
     return (
         <div className="m-2">
             Hello
-            <div>{res ? typeToString(res) : 'NO TYPE'} </div>
+            <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
             <div>
                 {cst.roots.map((root) => (
                     <RenderNode key={root} node={cst.nodes[root]} ctx={{ nodes: cst.nodes, parsed }} />
                 ))}
             </div>
-            <div>{JSON.stringify(parsed.ctx.meta)}</div>
         </div>
     );
 };

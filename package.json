@@ -1,26 +1,27 @@
 {
-  "name": "hindley",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@types/bun": "^1.2.4",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "@unocss/config": "66.1.0-beta.3",
-    "@unocss/core": "66.1.0-beta.3",
-    "@unocss/preset-wind4": "66.1.0-beta.3",
-    "fast-deep-equal": "^3.1.3",
-    "peggy": "^4.2.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "typescript": "^5.8.2",
-    "unocss": "66.1.0-beta.3"
-  }
+    "name": "hindley",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "test-lcov": "bun test --watch --coverage --coverage-reporter=lcov"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@types/bun": "^1.2.4",
+        "@types/react": "^19.0.10",
+        "@types/react-dom": "^19.0.4",
+        "@unocss/config": "66.1.0-beta.3",
+        "@unocss/core": "66.1.0-beta.3",
+        "@unocss/preset-wind4": "66.1.0-beta.3",
+        "fast-deep-equal": "^3.1.3",
+        "peggy": "^4.2.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "typescript": "^5.8.2",
+        "unocss": "66.1.0-beta.3"
+    }
 }
