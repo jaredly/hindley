@@ -62,6 +62,7 @@ const tests: ([string, string] | [string, string, true])[] = [
     [`for (let i = 0;i < 5;i += 1) {return i}`, 'void'],
     // [`(a) => {for (let i = 0;i < 5;i += 1) {return i}}`, 'int'],
     [`[...[], 10, ...[5]]`, 'array(int)'],
+    [`{let ok = [];ok.push(1);ok}`, 'array(int)'],
     // ['0 += 1', 'int'],
 ];
 

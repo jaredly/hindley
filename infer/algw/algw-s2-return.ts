@@ -213,17 +213,21 @@ export const generalize = (tenv: Tenv, t: Type): Scheme => {
     };
 };
 
-type State = { nextId: number; subst: Subst; record: { name: string; type: Type }[]; byLoc: Record<string, Type> };
+type Event = { type: 'subst'; name: string; value: Type } | { type: 'infer'; src: Src; value: Type };
 
-let globalState: State = { nextId: 0, subst: {}, record: [], byLoc: {} };
+type State = { nextId: number; subst: Subst; events: Event[] };
+
+let globalState: State = { nextId: 0, subst: {}, events: [] };
 export const resetState = () => {
-    globalState = { nextId: 0, subst: {}, record: [], byLoc: {} };
+    globalState = { nextId: 0, subst: {}, events: [] };
 };
+export const getGlobalState = () => globalState;
 
 export const newTypeVar = (name: string): Extract<Type, { type: 'var' }> => {
-    // console.log('bew type var', name);
     // console.log(new Error().stack!.split('\n').slice(1, 3).join('\n'));
-    return { type: 'var', name: `${name}:${globalState.nextId++}` };
+    const nname = `${name}:${globalState.nextId++}`;
+    // console.log(`new type var ${name} -> ${nname}`);
+    return { type: 'var', name: nname };
 };
 
 export const makeSubstForFree = (vars: string[]) => {
@@ -240,6 +244,7 @@ export const instantiate = (scheme: Scheme) => {
 };
 
 export const addSubst = (name: string, type: Type) => {
+    globalState.events.push({ type: 'subst', name, value: type });
     globalState.subst = composeSubst({ [name]: type }, globalState.subst);
 };
 
@@ -280,7 +285,9 @@ export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
     // const old = globalState.subst;
     // globalState.subst = {};
     const type = inferExprInner(tenv, expr, asStmt);
-    // globalState.byLoc[expr.src.left.idx]
+    if (type.value) {
+        globalState.events.push({ type: 'infer', src: expr.src, value: type.value });
+    }
     // globalState.subst = composeSubst(globalState.subst, old);
     return type;
 };
@@ -321,6 +328,7 @@ export const inferStmt = (
             const { pat, init } = stmt;
             if (pat.type === 'var') {
                 const pv = newTypeVar(pat.name);
+                globalState.events.push({ type: 'infer', src: pat.src, value: pv });
                 const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
                 const valueType = inferExpr(self, init, false);
                 if (!valueType.value) {
@@ -328,10 +336,11 @@ export const inferStmt = (
                 }
                 unify(typeApply(globalState.subst, pv), valueType.value);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
+                // globalState.events.push({ type: 'infer', src: pat.src, value: valueType.value });
                 return {
                     return: valueType.return,
                     partial: true,
-                    scope: { [pat.name]: generalize(appliedEnv, valueType.value) },
+                    scope: { [pat.name]: init.type === 'lambda' ? generalize(appliedEnv, valueType.value) : { vars: [], body: valueType.value } },
                     value: { type: 'con', name: 'void' },
                 };
             }
@@ -419,6 +428,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
                     scope = scopeApply(globalState.subst, scope);
                     boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
                 }
+                globalState.events.push({ type: 'infer', src: expr.args[0].src, value: argType });
 
                 const bodyType = inferExpr(boundEnv, expr.body, false);
                 if (bodyType.value && bodyType.return) {
@@ -442,6 +452,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
         case 'app': {
             if (expr.args.length === 1) {
                 const resultVar = newTypeVar('result');
+                globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
                 let targetType = inferExpr(tenv, expr.target, false);
                 const argTenv = tenvApply(globalState.subst, tenv);
                 const argType = inferExpr(argTenv, expr.args[0], false);

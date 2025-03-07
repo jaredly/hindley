@@ -1,8 +1,19 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { js, lex } from '../lang/lexer';
 import { fromMap, Node, Nodes } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
-import { builtinEnv, Expr, inferExpr, inferStmt, resetState, Stmt, typeToString } from '../infer/algw/algw-s2-return';
+import {
+    builtinEnv,
+    Expr,
+    getGlobalState,
+    inferExpr,
+    inferStmt,
+    resetState,
+    Stmt,
+    Type,
+    typeApply,
+    typeToString,
+} from '../infer/algw/algw-s2-return';
 
 const env = builtinEnv();
 const text = `{\nlet quicksort = (arr) => {
@@ -41,6 +52,8 @@ try {
     res = null;
 }
 
+const glob = getGlobalState();
+
 console.log('res', res);
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
@@ -59,7 +72,7 @@ export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
     return res;
 };
 
-type Ctx = { nodes: Nodes; parsed: ParseResult<Stmt> };
+type Ctx = { nodes: Nodes; parsed: ParseResult<Stmt>; byLoc: Record<string, Type> };
 
 const styles = {
     kwd: { color: 'green' },
@@ -67,7 +80,25 @@ const styles = {
     unparsed: { color: 'red' },
 };
 
+// const byLoc: Record<string, Type> = {};
+// glob.events.forEach((evt) => {
+//     if (evt.type === 'infer' && !evt.src.right) {
+//         byLoc[evt.src.left] = evt.value;
+//     }
+// });
+
 const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
+    const t = ctx.byLoc[node.loc];
+    // const ty = t ? typeApply(glob.subst, t) : null;
+    return (
+        <span>
+            <span style={{ fontSize: '80%', color: '#666' }}>{t ? typeToString(t) : ''}</span>
+            <RenderNode_ node={node} ctx={ctx} />
+        </span>
+    );
+};
+
+const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     const meta = ctx.parsed.ctx.meta[node.loc];
     const style = styles[meta?.kind as 'kwd'];
     switch (node.type) {
@@ -136,15 +167,49 @@ const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 };
 
 export const App = () => {
+    const [at, setAt] = useState(0);
+
+    const { byLoc, subst } = useMemo(() => {
+        const byLoc: Record<string, Type> = {};
+        const subst: { name: string; type: Type }[] = [];
+        const smap: Record<string, Type> = {};
+        for (let i = 0; i < at; i++) {
+            const evt = glob.events[i];
+            if (evt.type === 'infer' && !evt.src.right) {
+                byLoc[evt.src.left] = evt.value;
+            }
+            if (evt.type === 'subst') {
+                subst.push({ name: evt.name, type: evt.value });
+                smap[evt.name] = evt.value;
+            }
+        }
+        Object.keys(byLoc).forEach((k) => {
+            byLoc[k] = typeApply(smap, byLoc[k]);
+        });
+        return { byLoc, subst };
+    }, [at]);
+
     return (
         <div className="m-2">
             Hello
+            <input type="range" min="0" max={glob.events.length} value={at} onChange={(evt) => setAt(+evt.target.value)} />
             <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
-            <div>
-                {cst.roots.map((root) => (
-                    <RenderNode key={root} node={cst.nodes[root]} ctx={{ nodes: cst.nodes, parsed }} />
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'row' }}>
+                <div>
+                    {cst.roots.map((root) => (
+                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ nodes: cst.nodes, parsed, byLoc }} />
+                    ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', justifyContent: 'flex-start', gridAutoRows: 'min-content' }}>
+                    {subst.map((type, i) => (
+                        <React.Fragment key={i}>
+                            <div>{type.name}</div>
+                            <div>{typeToString(type.type)}</div>
+                        </React.Fragment>
+                    ))}
+                </div>
             </div>
+            {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
         </div>
     );
 };
