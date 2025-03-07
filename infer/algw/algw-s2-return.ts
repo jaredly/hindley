@@ -213,12 +213,11 @@ export const generalize = (tenv: Tenv, t: Type): Scheme => {
     };
 };
 
-type State = { nextId: number; subst: Subst };
+type State = { nextId: number; subst: Subst; record: { name: string; type: Type }[]; byLoc: Record<string, Type> };
 
-let globalState: State = { nextId: 0, subst: {} };
+let globalState: State = { nextId: 0, subst: {}, record: [], byLoc: {} };
 export const resetState = () => {
-    globalState.nextId = 0;
-    globalState.subst = {};
+    globalState = { nextId: 0, subst: {}, record: [], byLoc: {} };
 };
 
 export const newTypeVar = (name: string): Extract<Type, { type: 'var' }> => {
@@ -281,6 +280,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
     // const old = globalState.subst;
     // globalState.subst = {};
     const type = inferExprInner(tenv, expr, asStmt);
+    // globalState.byLoc[expr.src.left.idx]
     // globalState.subst = composeSubst(globalState.subst, old);
     return type;
 };
