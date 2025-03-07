@@ -1,6 +1,6 @@
 import React, { JSX, ReactElement, useMemo, useState } from 'react';
 import { js, lex } from '../lang/lexer';
-import { fromMap, Node, Nodes } from '../lang/nodes';
+import { childLocs, fromMap, Node, Nodes } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
 import {
     builtinEnv,
@@ -79,12 +79,19 @@ type Ctx = {
     parsed: ParseResult<Stmt>;
     byLoc: Record<string, Type>;
     spans: Record<string, string[]>;
+    multis: Record<string, true>;
 };
 
 const styles = {
     kwd: { color: 'green' },
     punct: { color: 'gray' },
     unparsed: { color: 'red' },
+};
+
+const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => void, path: string[] = []) => {
+    f(nodes[id], path);
+    const next = path.concat([id]);
+    childLocs(nodes[id]).forEach((child) => traverse(child, nodes, f, next));
 };
 
 // const byLoc: Record<string, Type> = {};
@@ -108,6 +115,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                 display: !multiline ? 'inline-block' : 'inline',
             }}
         >
+            {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
             {children}
             {/* <span style={{ fontSize: '80%', color: '#666' }}>{t ? typeToString(t) : ''}</span> */}
         </span>
@@ -205,8 +213,28 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 export const App = () => {
     const [at, setAt] = useState(0);
 
+    const multis = useMemo(() => {
+        const multis: Record<string, true> = {};
+        cst.roots.forEach((root) =>
+            traverse(root, cst.nodes, (node, path) => {
+                if (node.type === 'list' && node.forceMultiline) {
+                    console.log('found one', node, path);
+                    path.forEach((id) => (multis[id] = true));
+                    multis[node.loc] = true;
+                }
+            }),
+        );
+        return multis;
+    }, [cst]);
+
     const { byLoc, subst, spans, types } = useMemo(() => {
         const spans: Record<string, string[]> = {};
+        glob.events.forEach((evt) => {
+            if (evt.type === 'infer' && evt.src.right) {
+                if (!spans[evt.src.left]) spans[evt.src.left] = [];
+                if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
+            }
+        });
         const byLoc: Record<string, Type> = {};
         const subst: { name: string; type: Type }[] = [];
         const types: { src: Src; type: Type }[] = [];
@@ -215,8 +243,8 @@ export const App = () => {
             const evt = glob.events[i];
             if (evt.type === 'infer') {
                 if (evt.src.right) {
-                    if (!spans[evt.src.left]) spans[evt.src.left] = [];
-                    if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
+                    // if (!spans[evt.src.left]) spans[evt.src.left] = [];
+                    // if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
                     byLoc[evt.src.left + ':' + evt.src.right] = evt.value;
                 } else {
                     byLoc[evt.src.left] = evt.value;
@@ -248,7 +276,7 @@ export const App = () => {
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div>
                     {cst.roots.map((root) => (
-                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ spans, nodes: cst.nodes, parsed, byLoc }} />
+                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ multis, spans, nodes: cst.nodes, parsed, byLoc }} />
                     ))}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', justifyContent: 'flex-start', gridAutoRows: 'min-content' }}>
@@ -266,6 +294,8 @@ export const App = () => {
     );
 };
 
+const ungroup = (group: Grouped): string[] => group.children.flatMap((child) => (typeof child === 'string' ? child : ungroup(child)));
+
 const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; spaced: boolean }): ReactElement => {
     const children: ReactElement[] = grouped.children.map((item, i) =>
         typeof item === 'string' ? (
@@ -279,7 +309,7 @@ const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; s
         return <>{children}</>;
     }
     return (
-        <Wrap id={grouped.id!} ctx={ctx} multiline={false}>
+        <Wrap id={grouped.id!} ctx={ctx} multiline={ungroup(grouped).some((id) => ctx.multis[id])}>
             {children as any}
         </Wrap>
     );
