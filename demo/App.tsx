@@ -121,7 +121,7 @@ const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
                         node.children.map((id) => (
                             <span key={id} style={node.forceMultiline ? { marginLeft: 16, display: 'block' } : undefined}>
                                 <RenderNode key={id} node={ctx.nodes[id]} ctx={ctx} />
-                                {node.forceMultiline ? (node.kind === 'curly' ? ';' : ',') : null}
+                                {node.forceMultiline ? (node.kind === 'curly' ? null : ',') : null}
                             </span>
                         )),
                         (i) => (node.forceMultiline ? null : <span key={'mid-' + i}>{node.kind === 'curly' ? '; ' : ', '}</span>),
@@ -145,7 +145,6 @@ export const App = () => {
                     <RenderNode key={root} node={cst.nodes[root]} ctx={{ nodes: cst.nodes, parsed }} />
                 ))}
             </div>
-            <div>{JSON.stringify(parsed.ctx.meta)}</div>
         </div>
     );
 };

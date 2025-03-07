@@ -240,8 +240,8 @@ export const instantiate = (scheme: Scheme) => {
     return typeApply(subst, scheme.body);
 };
 
-export const addSubst = (subst: Subst) => {
-    globalState.subst = composeSubst(subst, globalState.subst);
+export const addSubst = (name: string, type: Type) => {
+    globalState.subst = composeSubst({ [name]: type }, globalState.subst);
 };
 
 export const varBind = (name: string, type: Type) => {
@@ -249,13 +249,13 @@ export const varBind = (name: string, type: Type) => {
         if (type.name === name) {
             return;
         }
-        addSubst({ [name]: type });
+        addSubst(name, type);
         return;
     }
     if (typeFree(type).includes(name)) {
         throw new Error(`Cycle found while unifying type with type variable: ${name}`);
     }
-    addSubst({ [name]: type });
+    addSubst(name, type);
 };
 
 export const unify = (one: Type, two: Type) => {
