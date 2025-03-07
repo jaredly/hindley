@@ -23,13 +23,16 @@ export const builtinEnv = () => {
     builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool' });
     builtinEnv.scope['length'] = generic(['k'], tfn(tapp(tcon('array'), k), tint));
     builtinEnv.scope['index'] = generic(['k'], tfns([tapp(tcon('array'), k), tint], tint));
+    builtinEnv.scope['push'] = generic(['k'], tfns([tapp(tcon('array'), k), k], tcon('void')));
+    builtinEnv.scope['concat'] = generic(['k'], tfns([tapp(tcon('array'), k), tapp(tcon('array'), k)], tapp(tcon('array'), k)));
     builtinEnv.scope['[]'] = generic(['k'], tapp(tcon('array'), k));
     builtinEnv.scope['::'] = generic(['k'], tfns([k, tapp(tcon('array'), k)], tapp(tcon('array'), k)));
     builtinEnv.scope['void'] = concrete({ type: 'con', name: 'void' });
     builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint));
+    builtinEnv.scope['+='] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['-'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['>'] = concrete(tfns([tint, tint], tbool));
-    builtinEnv.scope['<'] = concrete(tfns([tint, tint], tint));
+    builtinEnv.scope['<'] = concrete(tfns([tint, tint], tbool));
     builtinEnv.scope['<='] = concrete(tfns([tint, tint], tbool));
     builtinEnv.scope['='] = generic(['k'], tfns([k, k], tint));
     builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tapp(tcon(','), a), b)));
@@ -47,6 +50,7 @@ export type Prim = { type: 'int'; value: number } | { type: 'bool'; value: boole
 export type Block = { type: 'block'; stmts: Stmt[]; src: Src };
 
 export type Stmt =
+    | { type: 'for'; init: Stmt; cond: Expr; update: Expr; body: Block; src: Src }
     | { type: 'let'; pat: Pat; init: Expr; src: Src }
     | { type: 'expr'; expr: Expr; src: Src }
     | { type: 'return'; value?: Expr; src: Src };
@@ -56,7 +60,7 @@ export type Expr =
     | Block
     | { type: 'if'; cond: Expr; yes: Block; no?: Expr; src: Src }
     | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src }
-    | { type: 'array'; items: (Expr | Spread<Expr>)[]; src: Src }
+    // | { type: 'array'; items: (Expr | Spread<Expr>)[]; src: Src }
     | { type: 'prim'; prim: Prim; src: Src }
     | { type: 'var'; name: string; src: Src }
     | { type: 'str'; value: string; src: Src }
@@ -284,6 +288,20 @@ export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
 export const tfn = (arg: Type, body: Type): Type => ({ type: 'app', target: { type: 'app', target: { type: 'con', name: '->' }, arg }, arg: body });
 export const tfns = (args: Type[], body: Type): Type => args.reduceRight((res, arg) => tfn(arg, res), body);
 
+const tenvWithScope = (tenv: Tenv, scope: Tenv['scope']): Tenv => ({
+    ...tenv,
+    scope: { ...tenv.scope, ...scope },
+});
+
+const unifyReturns = (ts: (Type | null | undefined)[]) => {
+    const real = ts.filter((t) => t != null);
+    if (real.length < 2) return;
+    for (let i = 1; i < real.length; i++) {
+        unify(real[0], real[i]);
+    }
+    return typeApply(globalState.subst, real[0]);
+};
+
 export const inferStmt = (
     tenv: Tenv,
     stmt: Stmt,
@@ -302,10 +320,13 @@ export const inferStmt = (
         case 'let': {
             const { pat, init } = stmt;
             if (pat.type === 'var') {
-                const valueType = inferExpr(tenv, init, false);
+                const pv = newTypeVar(pat.name);
+                const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
+                const valueType = inferExpr(self, init, false);
                 if (!valueType.value) {
                     return { return: valueType.return, partial: valueType.partial, value: null };
                 }
+                unify(typeApply(globalState.subst, pv), valueType.value);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
                 return {
                     return: valueType.return,
@@ -326,6 +347,17 @@ export const inferStmt = (
         case 'expr':
             const value = inferExpr(tenv, stmt.expr, false);
             return { return: value.return, partial: value.partial, value: value.value };
+        case 'for': {
+            const letter = inferStmt(tenv, stmt.init);
+            const bound = letter.scope ? tenvWithScope(tenvApply(globalState.subst, tenv), letter.scope) : tenv;
+            const upter = inferExpr(bound, stmt.cond, false);
+            unify(upter.value ?? { type: 'con', name: 'void' }, { type: 'con', name: 'bool' });
+            const okk = inferExpr(bound, stmt.update, true);
+            const body = inferExpr(bound, stmt.body, true);
+            const ret = unifyReturns([letter.return, okk.return, body.return]);
+
+            return { return: ret, partial: body.partial, value: { type: 'con', name: 'void' } };
+        }
         // case 'match':
         //     throw new Error('not right now');
         // case 'match': {
@@ -448,10 +480,10 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
             const one = inferExpr(tenv, expr.yes, true);
             const two = expr.no ? inferExpr(tenv, expr.no, true) : undefined;
             if (one.return && two?.return) {
-                console.log('both have a return', one.return, two.return);
+                // console.log('both have a return', one.return, two.return);
                 unify(one.return, two.return);
             } else {
-                console.log('not both have rteturn');
+                // console.log('not both have rteturn');
             }
             const twov = two ? two.value : { type: 'con' as const, name: 'void' };
             if (!asStmt && one.value && twov) {
@@ -489,6 +521,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
                 value: value ? typeApply(globalState.subst, value) : null,
             };
         }
+        // case 'array': {
+        //     // expr.items
+        // }
 
         // case 'let': {
         //     if (expr.vbls.length === 0) throw new Error('no bindings in let');

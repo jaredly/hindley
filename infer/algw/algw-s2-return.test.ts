@@ -59,6 +59,10 @@ const tests: ([string, string] | [string, string, true])[] = [
     [`(arr) => arr.length`, '(array(k:2)) => int'],
     [`(arr) => {return arr.length}`, '(array(k:2)) => int'],
     [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(array(k:3)) => array(k:3)'],
+    [`for (let i = 0;i < 5;i += 1) {return i}`, 'void'],
+    [`(a) => {for (let i = 0;i < 5;i += 1) {return i}}`, 'int'],
+    [`[...[], 10, ...[5]]`, 'array(int)'],
+    // ['0 += 1', 'int'],
 ];
 
 const env = builtinEnv();

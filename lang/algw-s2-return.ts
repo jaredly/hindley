@@ -21,6 +21,17 @@ const stmts_spaced: Record<string, Rule<Stmt>> = {
         value: ctx.ref<undefined | Expr>('value'),
         src,
     })),
+    for: tx(
+        seq(kwd('for'), list('round', seq(ref('stmt', 'init'), ref('expr', 'cond'), ref('expr', 'update'))), ref('block', 'body')),
+        (ctx, src) => ({
+            type: 'for',
+            init: ctx.ref<Stmt>('init'),
+            cond: ctx.ref<Expr>('cond'),
+            update: ctx.ref<Expr>('update'),
+            body: ctx.ref<Block>('body'),
+            src,
+        }),
+    ),
     // throw: tx<Stmt>(seq(kwd('throw'), ref('expr ', 'value')), (ctx, src) => ({
     //     type: 'throw',
     //     value: ctx.ref<Expr>('value'),
@@ -89,22 +100,58 @@ const exprs: Record<string, Rule<Expr>> = {
             src,
         }));
     }),
-    'expr array': tx(
-        list('square', group('items', star(ref('expr')))),
-        (ctx, src) =>
-            ctx
-                .ref<Expr[]>('items')
-                .reduceRight((right, left) => ({ type: 'app', target: { type: 'var', name: '::', src }, args: [left, right], src }), {
-                    type: 'var',
-                    name: '[]',
-                    src,
-                }),
-        // ({
-        // type: 'array',
-        // items: ctx.ref<Expr[]>('items'),
-        // src,
+    'expr array': tx(list('square', group('items', star(or(or(ref('spread'), ref('expr')))))), (ctx, src) => {
+        const groups: Expr[] = [];
+        let current: Expr[] = [];
+
+        const toArray = (items: Expr[]) =>
+            items.reduceRight((right, left) => ({ type: 'app', target: { type: 'var', name: '::', src }, args: [left, right], src }), {
+                type: 'var',
+                name: '[]',
+                src,
+            });
+
+        ctx.ref<(Expr | Spread<Expr>)[]>('items').forEach((item) => {
+            if (item.type === 'spread') {
+                if (current.length) {
+                    groups.push(toArray(current));
+                    current = [];
+                }
+                groups.push(item.inner);
+            } else {
+                current.push(item);
+            }
+        });
+
+        if (current.length) {
+            groups.push(toArray(current));
+        }
+        if (groups.length === 0) {
+            return { type: 'var', name: '[]', src };
+        }
+        if (groups.length === 1) {
+            return groups[0];
+        }
+        return groups.reduceRight(
+            (right, left): Expr => ({
+                type: 'app',
+                target: { type: 'var', name: 'concat', src },
+                args: [left, right],
+                src,
+            }),
+        );
+
+        //     ({
+        //     type: 'array',
+        //     src,
+        //     items: ctx.ref<(Expr | Spread<Expr>)[]>('items'),
         // })
-    ),
+        // ctx.ref<(Expr | Spread<Expr>)[]>('items').reduceRight((right, left) => ({ type: 'app', target: { type: 'var', name: '::', src }, args: [left, right], src }), {
+        //     type: 'var',
+        //     name: '[]',
+        //     src,
+        // })
+    }),
     // 'expr table': tx(
     //     group(
     //         'rows',
@@ -226,30 +273,12 @@ const rules = {
         ),
         (ctx, src) => parseSmoosh(ctx.ref<Expr>('base'), ctx.ref<Suffix[]>('suffixes'), src),
     ),
-    expr: or(
-        ...Object.keys(exprs).map((name) => ref(name)),
-        list('spaced', ref('expr ')),
-        ref('block'),
-        tx<Expr>(
-            list(
-                'square',
-                group(
-                    'items',
-                    star(
-                        or(
-                            tx<Spread<Expr>>(list('smooshed', seq(kwd('...'), ref('expr..', 'expr'))), (ctx, src) => ({
-                                type: 'spread',
-                                inner: ctx.ref<Expr>('expr'),
-                                src,
-                            })),
-                            ref('expr'),
-                        ),
-                    ),
-                ),
-            ),
-            (ctx, src) => ({ type: 'array', items: ctx.ref<(Expr | Spread<Expr>)[]>('items'), src }),
-        ),
-    ),
+    expr: or(...Object.keys(exprs).map((name) => ref(name)), list('spaced', ref('expr ')), ref('block')),
+    spread: tx<Spread<Expr>>(list('smooshed', seq(kwd('...'), ref('expr..', 'expr'))), (ctx, src) => ({
+        type: 'spread',
+        inner: ctx.ref<Expr>('expr'),
+        src,
+    })),
     ...exprs,
     bop: or(...binops.map((m) => kwd(m, 'bop'))),
     if: tx<Expr>(

@@ -5,21 +5,21 @@ import { parser, ParseResult } from '../lang/algw-s2-return';
 import { builtinEnv, Expr, inferExpr, inferStmt, resetState, Stmt, typeToString } from '../infer/algw/algw-s2-return';
 
 const env = builtinEnv();
-const text = `let quicksort = (arr) => {
+const text = `{\nlet quicksort = (arr) => {
 if (arr.length <= 1) {
 return arr}
 let pivot = arr[arr.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < arr.length; i++) {
+for (let i = 0; i < arr.length; i += 1) {
 if (arr[i] < pivot) {
     leftArr.push(arr[i])
 } else {
     rightArr.push(arr[i])
 }
 }
-return [...quickSort(leftArr), pivot, ...quickSort(rightArr)]
-}`;
+return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
+};quicksort}`;
 // const text = `(x) => {let (a, _) = x; a(2)}`;
 const cst = lex(js, text);
 // console.log(JSON.stringify(cst, null, 2));
@@ -33,7 +33,14 @@ resetState();
 console.log(parsed);
 console.log(node);
 
-const res = {}; //inferStmt(env, parsed.result);
+let res;
+try {
+    res = inferStmt(env, parsed.result);
+} catch (err) {
+    console.log('bad inference', err);
+    res = null;
+}
+
 console.log('res', res);
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
@@ -132,7 +139,7 @@ export const App = () => {
     return (
         <div className="m-2">
             Hello
-            <div>{res?.return ? typeToString(res.return) : 'NO TYPE'} </div>
+            <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
             <div>
                 {cst.roots.map((root) => (
                     <RenderNode key={root} node={cst.nodes[root]} ctx={{ nodes: cst.nodes, parsed }} />
