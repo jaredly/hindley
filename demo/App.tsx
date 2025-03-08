@@ -10,6 +10,7 @@ import {
     inferStmt,
     resetState,
     Stmt,
+    Subst,
     Tenv,
     Type,
     typeApply,
@@ -26,7 +27,7 @@ let pivot = arr[arr.length - 1]
 let leftArr = []
 let rightArr = []
 for (let i = 0; i < arr.length; i += 1) {
-if (arr[i] < pivot) {
+if (arr[i] <= pivot) {
     leftArr.push(arr[i])
 } else {
     rightArr.push(arr[i])
@@ -233,7 +234,7 @@ export const App = () => {
         return multis;
     }, [cst]);
 
-    const { byLoc, subst, spans, types, scope } = useMemo(() => {
+    const { byLoc, subst, spans, types, scope, smap } = useMemo(() => {
         const spans: Record<string, string[]> = {};
         glob.events.forEach((evt) => {
             if (evt.type === 'infer' && evt.src.right) {
@@ -273,14 +274,14 @@ export const App = () => {
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
-        return { byLoc, subst, spans, types, scope };
+        return { byLoc, subst, spans, types, scope, smap };
     }, [at]);
 
     return (
         <div className="m-2">
             Hindley Milner visualization
             <div>
-                <input type="range" min="0" max={glob.events.length} value={at} onChange={(evt) => setAt(+evt.target.value)} />
+                <input type="range" min="0" max={glob.events.length - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
             </div>
             <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
             <div style={{ display: 'flex', flexDirection: 'row' }}>
@@ -289,27 +290,75 @@ export const App = () => {
                         <RenderNode key={root} node={cst.nodes[root]} ctx={{ multis, spans, nodes: cst.nodes, parsed, byLoc }} />
                     ))}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', justifyContent: 'flex-start', gridAutoRows: 'min-content' }}>
-                    {subst.map((type, i) => (
-                        <React.Fragment key={i}>
-                            <div>{type.name}</div>
-                            <div>{typeToString(type.type)}</div>
-                        </React.Fragment>
-                    ))}
-                </div>
+                {/* <Substs subst={subst} /> */}
+                <Sidebar smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
             </div>
             <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(glob.events[at])}</div>
-            <div style={{ whiteSpace: 'pre', display: 'grid', gridTemplateColumns: 'min-content min-content min-content', alignSelf: 'flex-start' }}>
-                {Object.entries(scope).map(([key, scheme]) => (
-                    <div key={key} style={{ display: 'contents' }}>
-                        <div>{key}</div>
-                        <div>{scheme.vars.length ? '<' + scheme.vars.join(',') + '>' : ''}</div>
-                        <div>{typeToString(scheme.body)}</div>
-                    </div>
-                ))}
-            </div>
+            <ScopeDebug scope={scope} />
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div> */}
+        </div>
+    );
+};
+
+const Sidebar = ({
+    subst,
+    smap,
+    scope,
+    types,
+    nodes,
+}: {
+    subst: { name: string; type: Type }[];
+    smap: Subst;
+    scope: Tenv['scope'];
+    types: Record<string, Type>;
+    nodes: Nodes;
+}) => {
+    const variables = {};
+    return (
+        <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'min-content min-content', columnGap: 12 }}>
+                {Object.keys(scope)
+                    .filter((k) => !env.scope[k])
+                    .map((k) => (
+                        <div key={k} style={{ display: 'contents' }}>
+                            <div>{k}</div>
+                            <div>
+                                {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
+                                {typeToString(typeApply(smap, scope[k].body))}
+                            </div>
+                        </div>
+                    ))}
+            </div>
+        </div>
+    );
+    // First: variables in scope, minus builtins
+    // Second: type annotations with type variables
+};
+
+const Substs = ({ subst }: { subst: { name: string; type: Type }[] }) => {
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', justifyContent: 'flex-start', gridAutoRows: 'min-content' }}>
+            {subst.map((type, i) => (
+                <React.Fragment key={i}>
+                    <div>{type.name}</div>
+                    <div>{typeToString(type.type)}</div>
+                </React.Fragment>
+            ))}
+        </div>
+    );
+};
+
+const ScopeDebug = ({ scope }: { scope: Tenv['scope'] }) => {
+    return (
+        <div style={{ whiteSpace: 'pre', display: 'grid', gridTemplateColumns: 'min-content min-content min-content', alignSelf: 'flex-start' }}>
+            {Object.entries(scope).map(([key, scheme]) => (
+                <div key={key} style={{ display: 'contents' }}>
+                    <div>{key}</div>
+                    <div>{scheme.vars.length ? '<' + scheme.vars.join(',') + '>' : ''}</div>
+                    <div>{typeToString(scheme.body)}</div>
+                </div>
+            ))}
         </div>
     );
 };

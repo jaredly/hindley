@@ -1,4 +1,14 @@
 
+# Instead of SUBST
+
+just show:
+- types with type variables, and all declared variables. (from scopeee)
+- the latest subst
+- now, animate it!
+
+ALSO report the latest event, like what just got inferred.
+
+
 #
 
 Ok, so let's make `return` work!

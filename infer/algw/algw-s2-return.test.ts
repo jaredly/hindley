@@ -58,7 +58,7 @@ const tests: ([string, string] | [string, string, true])[] = [
     // ],
     [`(arr) => arr.length`, '(array(k:2)) => int'],
     [`(arr) => {return arr.length}`, '(array(k:2)) => int'],
-    [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(array(k:4)) => array(k:4)'],
+    [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(array(result:2)) => array(result:2)'],
     [`for (let i = 0;i < 5;i += 1) {return i}`, 'void'],
     // [`(a) => {for (let i = 0;i < 5;i += 1) {return i}}`, 'int'],
     [`[...[], 10, ...[5]]`, 'array(int)'],

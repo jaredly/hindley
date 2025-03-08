@@ -74,7 +74,7 @@ export type Pat =
     | { type: 'prim'; prim: Prim; src: Src };
 export type Type = { type: 'var'; name: string } | { type: 'app'; target: Type; arg: Type } | { type: 'con'; name: string };
 
-export const typeToString = (t: Type): string => {
+export const typeToString = (t: Type, vnames?: Record<string, string>): string => {
     switch (t.type) {
         case 'var':
             return t.name;
@@ -86,12 +86,12 @@ export const typeToString = (t: Type): string => {
                 target = target.target;
             }
             if (target.type === 'con' && target.name === ',') {
-                return `(${args.map(typeToString).join(', ')})`;
+                return `(${args.map((a) => typeToString(a, vnames)).join(', ')})`;
             }
             if (target.type === 'con' && target.name === '->' && args.length === 2) {
-                return `(${typeToString(args[0])}) => ${typeToString(args[1])}`;
+                return `(${typeToString(args[0], vnames)}) => ${typeToString(args[1], vnames)}`;
             }
-            return `${typeToString(target)}(${args.map(typeToString).join(', ')})`;
+            return `${typeToString(target, vnames)}(${args.map((a) => typeToString(a, vnames)).join(', ')})`;
         case 'con':
             return t.name;
     }
