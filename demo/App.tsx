@@ -234,19 +234,39 @@ export const App = () => {
         return multis;
     }, [cst]);
 
-    const { byLoc, subst, spans, types, scope, smap } = useMemo(() => {
+    const { spans, vnames } = useMemo(() => {
         const spans: Record<string, string[]> = {};
+        const vnames: Record<string, string> = {};
+
+        const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+
         glob.events.forEach((evt) => {
             if (evt.type === 'infer' && evt.src.right) {
                 if (!spans[evt.src.left]) spans[evt.src.left] = [];
                 if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
             }
+            if (evt.type === 'new-var') {
+                let count = Object.keys(vnames).length;
+                let name = alphabet[count % alphabet.length];
+                while (count >= alphabet.length) {
+                    count -= alphabet.length;
+                    name += alphabet[count % alphabet.length];
+                }
+                // evt.name
+                vnames[evt.name] = name;
+            }
         });
+
+        return { spans, vnames };
+    }, []);
+
+    const { byLoc, subst, types, scope, smap } = useMemo(() => {
         const byLoc: Record<string, Type> = {};
         const subst: { name: string; type: Type }[] = [];
         const types: { src: Src; type: Type }[] = [];
         const smap: Record<string, Type> = {};
         let scope: Tenv['scope'] = {};
+
         for (let i = 0; i <= at; i++) {
             const evt = glob.events[i];
             if (evt.type === 'infer') {
@@ -268,13 +288,14 @@ export const App = () => {
                 scope = evt.scope;
             }
         }
+
         subst.forEach((s) => {
             s.type = typeApply(smap, s.type);
         });
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
-        return { byLoc, subst, spans, types, scope, smap };
+        return { byLoc, subst, types, scope, smap };
     }, [at]);
 
     return (
@@ -283,7 +304,7 @@ export const App = () => {
             <div>
                 <input type="range" min="0" max={glob.events.length - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
             </div>
-            <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
+            <div>{res?.value ? typeToString(res.value, vnames) : 'NO TYPE'} </div>
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div>
                     {cst.roots.map((root) => (
@@ -291,8 +312,9 @@ export const App = () => {
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
-                <Sidebar smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
+                <Sidebar smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} vnames={vnames} />
             </div>
+            <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(vnames)}</div>
             <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(glob.events[at])}</div>
             <ScopeDebug scope={scope} />
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
@@ -304,12 +326,14 @@ export const App = () => {
 const Sidebar = ({
     subst,
     smap,
+    vnames,
     scope,
     types,
     nodes,
 }: {
     subst: { name: string; type: Type }[];
     smap: Subst;
+    vnames: Record<string, string>;
     scope: Tenv['scope'];
     types: Record<string, Type>;
     nodes: Nodes;
@@ -317,7 +341,7 @@ const Sidebar = ({
     const variables = {};
     return (
         <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'min-content min-content', columnGap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
                 {Object.keys(scope)
                     .filter((k) => !env.scope[k])
                     .map((k) => (
@@ -325,7 +349,7 @@ const Sidebar = ({
                             <div>{k}</div>
                             <div>
                                 {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
-                                {typeToString(typeApply(smap, scope[k].body))}
+                                {typeToString(typeApply(smap, scope[k].body), vnames)}
                             </div>
                         </div>
                     ))}
@@ -338,7 +362,7 @@ const Sidebar = ({
 
 const Substs = ({ subst }: { subst: { name: string; type: Type }[] }) => {
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', justifyContent: 'flex-start', gridAutoRows: 'min-content' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', justifyContent: 'flex-start', gridAutoRows: 'max-content' }}>
             {subst.map((type, i) => (
                 <React.Fragment key={i}>
                     <div>{type.name}</div>
@@ -351,7 +375,7 @@ const Substs = ({ subst }: { subst: { name: string; type: Type }[] }) => {
 
 const ScopeDebug = ({ scope }: { scope: Tenv['scope'] }) => {
     return (
-        <div style={{ whiteSpace: 'pre', display: 'grid', gridTemplateColumns: 'min-content min-content min-content', alignSelf: 'flex-start' }}>
+        <div style={{ whiteSpace: 'pre', display: 'grid', gridTemplateColumns: 'max-content max-content max-content', alignSelf: 'flex-start' }}>
             {Object.entries(scope).map(([key, scheme]) => (
                 <div key={key} style={{ display: 'contents' }}>
                     <div>{key}</div>

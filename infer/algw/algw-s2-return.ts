@@ -77,7 +77,7 @@ export type Type = { type: 'var'; name: string } | { type: 'app'; target: Type; 
 export const typeToString = (t: Type, vnames?: Record<string, string>): string => {
     switch (t.type) {
         case 'var':
-            return t.name;
+            return vnames?.[t.name] ?? t.name;
         case 'app':
             const args: Type[] = [t.arg];
             let target = t.target;
@@ -213,7 +213,11 @@ export const generalize = (tenv: Tenv, t: Type): Scheme => {
     };
 };
 
-type Event = { type: 'subst'; name: string; value: Type } | { type: 'scope'; scope: Tenv['scope'] } | { type: 'infer'; src: Src; value: Type };
+type Event =
+    | { type: 'subst'; name: string; value: Type }
+    | { type: 'scope'; scope: Tenv['scope'] }
+    | { type: 'infer'; src: Src; value: Type }
+    | { type: 'new-var'; name: string };
 
 type State = { nextId: number; subst: Subst; events: Event[] };
 
@@ -226,6 +230,7 @@ export const getGlobalState = () => globalState;
 export const newTypeVar = (name: string): Extract<Type, { type: 'var' }> => {
     // console.log(new Error().stack!.split('\n').slice(1, 3).join('\n'));
     const nname = `${name}:${globalState.nextId++}`;
+    globalState.events.push({ type: 'new-var', name: nname });
     // console.log(`new type var ${name} -> ${nname}`);
     return { type: 'var', name: nname };
 };
