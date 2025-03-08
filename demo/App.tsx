@@ -4,6 +4,7 @@ import { childLocs, fromMap, Node, Nodes } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
 import {
     builtinEnv,
+    Event,
     Expr,
     getGlobalState,
     inferExpr,
@@ -106,19 +107,32 @@ const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => v
 const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
     const t = ctx.byLoc[id];
     const freeVbls = t ? typeFree(t) : [];
+    const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
     return (
         <span
             data-id={id}
             style={{
-                borderWidth: 1,
-                borderColor: ctx.byLoc[id] ? (freeVbls.length ? 'red' : 'green') : 'transparent',
-                borderRadius: 4,
+                borderBottomWidth: multiline ? 0 : 3,
+                marginBottom: 1,
+                borderColor: color ?? 'transparent',
+                // borderRadius: 4,
                 borderStyle: 'solid',
                 // backgroundColor: 'rgba(255,0,0,0.01)',
                 display: !multiline ? 'inline-block' : 'inline',
                 // alignItems: 'flex-start',
             }}
         >
+            {multiline ? (
+                <span
+                    style={{
+                        display: 'inline-block',
+                        color: color ?? 'transparent',
+                        fontWeight: 'bold',
+                    }}
+                >
+                    {'('}
+                </span>
+            ) : null}
             {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
             <span
                 style={
@@ -132,6 +146,17 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
             >
                 {children}
             </span>
+            {multiline ? (
+                <span
+                    style={{
+                        display: 'inline-block',
+                        color: color ?? 'transparent',
+                        fontWeight: 'bold',
+                    }}
+                >
+                    {')'}
+                </span>
+            ) : null}
             {/* <span
                 style={{
                     display: multiline ? 'inline' : 'block',
@@ -217,6 +242,17 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     }
 };
 
+const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+const makeName = (n: number) => {
+    let res = '';
+    while (n >= alphabet.length) {
+        res = alphabet[n % alphabet.length] + res;
+        n = Math.floor(n / alphabet.length);
+    }
+    res = alphabet[n] + res;
+    return res;
+};
+
 export const App = () => {
     const [at, setAt] = useState(glob.events.length / 2);
 
@@ -246,12 +282,7 @@ export const App = () => {
                 if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
             }
             if (evt.type === 'new-var') {
-                let count = Object.keys(vnames).length;
-                let name = alphabet[count % alphabet.length];
-                while (count >= alphabet.length) {
-                    count -= alphabet.length;
-                    name += alphabet[count % alphabet.length];
-                }
+                let name = makeName(Object.keys(vnames).length);
                 // evt.name
                 vnames[evt.name] = name;
             }
@@ -312,7 +343,7 @@ export const App = () => {
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
-                <Sidebar smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} vnames={vnames} />
+                <Sidebar latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} vnames={vnames} />
             </div>
             <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(vnames)}</div>
             <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(glob.events[at])}</div>
@@ -323,6 +354,27 @@ export const App = () => {
     );
 };
 
+const RenderEvent = ({ event, vnames }: { event: Event; vnames: Record<string, string> }) => {
+    switch (event.type) {
+        case 'new-var':
+            return <span>New Variable {vnames[event.name]}</span>;
+        case 'infer':
+            return (
+                <span>
+                    Inferred {JSON.stringify(event.src)} <RenderType t={event.value} vnames={vnames} />
+                </span>
+            );
+        case 'subst':
+            return (
+                <span>
+                    {vnames[event.name]} : <RenderType t={event.value} vnames={vnames} />
+                </span>
+            );
+        case 'scope':
+            return <span>scope</span>;
+    }
+};
+
 const Sidebar = ({
     subst,
     smap,
@@ -330,6 +382,7 @@ const Sidebar = ({
     scope,
     types,
     nodes,
+    latest,
 }: {
     subst: { name: string; type: Type }[];
     smap: Subst;
@@ -337,11 +390,12 @@ const Sidebar = ({
     scope: Tenv['scope'];
     types: Record<string, Type>;
     nodes: Nodes;
+    latest: Event;
 }) => {
     const variables = {};
     return (
         <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
+            <div style={{ display: 'grid', marginBottom: 16, gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
                 {Object.keys(scope)
                     .filter((k) => !env.scope[k])
                     .map((k) => (
@@ -349,11 +403,12 @@ const Sidebar = ({
                             <div>{k}</div>
                             <div>
                                 {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
-                                {typeToString(typeApply(smap, scope[k].body), vnames)}
+                                <RenderType t={typeApply(smap, scope[k].body)} vnames={vnames} />
                             </div>
                         </div>
                     ))}
             </div>
+            {latest ? <RenderEvent event={latest} vnames={vnames} /> : 'NOEV'}
         </div>
     );
     // First: variables in scope, minus builtins
@@ -454,4 +509,57 @@ const partition = (ctx: Ctx, children: string[]) => {
         throw new Error('didnt clen up all stacks');
     }
     return stack[0];
+};
+
+export const RenderType = ({ t, vnames }: { t: Type; vnames?: Record<string, string> }) => {
+    switch (t.type) {
+        case 'var':
+            return <span style={{ fontStyle: 'italic' }}>{vnames?.[t.name] ?? t.name}</span>;
+        case 'app':
+            const args: Type[] = [t.arg];
+            let target = t.target;
+            while (target.type === 'app') {
+                args.unshift(target.arg);
+                target = target.target;
+            }
+            if (target.type === 'con' && target.name === ',') {
+                return (
+                    <span>
+                        (
+                        {interleave(
+                            args.map((a, i) => <RenderType key={i} t={a} vnames={vnames} />),
+                            (i) => (
+                                <span key={'c-' + i}>, </span>
+                            ),
+                        )}
+                        )
+                    </span>
+                );
+            }
+            if (target.type === 'con' && target.name === '->' && args.length === 2) {
+                return (
+                    <span>
+                        {'('}
+                        <RenderType t={args[0]} vnames={vnames} />
+                        {') => '}
+                        <RenderType t={args[1]} vnames={vnames} />
+                    </span>
+                );
+            }
+            return (
+                <span>
+                    <RenderType vnames={vnames} t={target} />(
+                    {interleave(
+                        args.map((a, i) => <RenderType key={i} t={a} vnames={vnames} />),
+                        (i) => (
+                            <span key={'c-' + i}>, </span>
+                        ),
+                    )}
+                    )
+                </span>
+            );
+        // return `${typeToString(target, vnames)}(${args.map((a) => typeToString(a, vnames)).join(', ')})`;
+        case 'con':
+            return <span>{t.name}</span>;
+    }
 };

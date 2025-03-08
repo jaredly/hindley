@@ -213,13 +213,13 @@ export const generalize = (tenv: Tenv, t: Type): Scheme => {
     };
 };
 
-type Event =
+export type Event =
     | { type: 'subst'; name: string; value: Type }
     | { type: 'scope'; scope: Tenv['scope'] }
     | { type: 'infer'; src: Src; value: Type }
     | { type: 'new-var'; name: string };
 
-type State = { nextId: number; subst: Subst; events: Event[] };
+type State = { nextId: number; subst: Subst; events: Event[]; latestScope?: Tenv['scope'] };
 
 let globalState: State = { nextId: 0, subst: {}, events: [] };
 export const resetState = () => {
@@ -287,11 +287,14 @@ export const unify = (one: Type, two: Type) => {
 };
 
 export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
-    globalState.events.push({ type: 'scope', scope: tenv.scope });
+    if (globalState.latestScope !== tenv.scope) {
+        globalState.latestScope = tenv.scope;
+        globalState.events.push({ type: 'scope', scope: tenv.scope });
+    }
     // const old = globalState.subst;
     // globalState.subst = {};
     const type = inferExprInner(tenv, expr, asStmt);
-    if (type.value) {
+    if (type.value && !asStmt) {
         globalState.events.push({ type: 'infer', src: expr.src, value: type.value });
     }
     // globalState.subst = composeSubst(globalState.subst, old);
@@ -360,7 +363,7 @@ export const inferStmt = (
             return { return: null, scope: scope, value: { type: 'con', name: 'void' } };
         }
         case 'expr':
-            const value = inferExpr(tenv, stmt.expr, false);
+            const value = inferExpr(tenv, stmt.expr, true);
             return { return: value.return, partial: value.partial, value: value.value };
         case 'for': {
             const letter = inferStmt(tenv, stmt.init);
