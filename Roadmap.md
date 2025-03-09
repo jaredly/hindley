@@ -25,7 +25,7 @@ just show:
 - the latest subst
 - now, animate it!
 
-ALSO report the latest event, like what just got inferred.
+- [x] ALSO report the latest event, like what just got inferred.
 
 
 #

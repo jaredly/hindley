@@ -1,5 +1,6 @@
 // Based on https://compiler.jaredforsyth.com/algw-s2
 
+import equal from 'fast-deep-equal';
 import { Src } from '../../lang/parse-dsl';
 
 export const builtinEnv = () => {
@@ -74,10 +75,10 @@ export type Pat =
     | { type: 'prim'; prim: Prim; src: Src };
 export type Type = { type: 'var'; name: string } | { type: 'app'; target: Type; arg: Type } | { type: 'con'; name: string };
 
-export const typeToString = (t: Type, vnames?: Record<string, string>): string => {
+export const typeToString = (t: Type): string => {
     switch (t.type) {
         case 'var':
-            return vnames?.[t.name] ?? t.name;
+            return t.name;
         case 'app':
             const args: Type[] = [t.arg];
             let target = t.target;
@@ -86,12 +87,12 @@ export const typeToString = (t: Type, vnames?: Record<string, string>): string =
                 target = target.target;
             }
             if (target.type === 'con' && target.name === ',') {
-                return `(${args.map((a) => typeToString(a, vnames)).join(', ')})`;
+                return `(${args.map((a) => typeToString(a)).join(', ')})`;
             }
             if (target.type === 'con' && target.name === '->' && args.length === 2) {
-                return `(${typeToString(args[0], vnames)}) => ${typeToString(args[1], vnames)}`;
+                return `(${typeToString(args[0])}) => ${typeToString(args[1])}`;
             }
-            return `${typeToString(target, vnames)}(${args.map((a) => typeToString(a, vnames)).join(', ')})`;
+            return `${typeToString(target)}(${args.map((a) => typeToString(a)).join(', ')})`;
         case 'con':
             return t.name;
     }
@@ -309,7 +310,7 @@ export const unifyInner = (one: Type, two: Type): Subst => {
 };
 
 export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
-    if (globalState.latestScope !== tenv.scope) {
+    if (!globalState.latestScope || !equal(scopeApply(globalState.subst, globalState.latestScope), scopeApply(globalState.subst, tenv.scope))) {
         globalState.latestScope = tenv.scope;
         globalState.events.push({ type: 'scope', scope: tenv.scope });
     }

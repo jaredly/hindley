@@ -255,7 +255,7 @@ const makeName = (n: number) => {
 };
 
 export const App = () => {
-    const [at, setAt] = useState(glob.events.length / 2);
+    const [at, setAt] = useState((glob.events.length / 2) | 0);
 
     const multis = useMemo(() => {
         const multis: Record<string, true> = {};
@@ -271,9 +271,8 @@ export const App = () => {
         return multis;
     }, [cst]);
 
-    const { spans, vnames } = useMemo(() => {
+    const { spans } = useMemo(() => {
         const spans: Record<string, string[]> = {};
-        const vnames: Record<string, string> = {};
 
         const alphabet = 'abcdefghijklmnopqrstuvwxyz';
 
@@ -282,14 +281,9 @@ export const App = () => {
                 if (!spans[evt.src.left]) spans[evt.src.left] = [];
                 if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
             }
-            if (evt.type === 'new-var') {
-                let name = makeName(Object.keys(vnames).length);
-                // evt.name
-                vnames[evt.name] = name;
-            }
         });
 
-        return { spans, vnames };
+        return { spans };
     }, []);
 
     const { byLoc, subst, types, scope, smap } = useMemo(() => {
@@ -339,8 +333,9 @@ export const App = () => {
             Hindley Milner visualization
             <div>
                 <input type="range" min="0" max={glob.events.length - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
+                {at}
             </div>
-            <div>{res?.value ? typeToString(res.value, vnames) : 'NO TYPE'} </div>
+            <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div>
                     {cst.roots.map((root) => (
@@ -350,9 +345,7 @@ export const App = () => {
                 {/* <Substs subst={subst} /> */}
                 <Sidebar latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
             </div>
-            <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(vnames)}</div>
-            <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(glob.events[at])}</div>
-            <ScopeDebug scope={scope} />
+            {/* <ScopeDebug scope={scope} /> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div> */}
         </div>
@@ -585,7 +578,6 @@ export const RenderType = ({ t }: { t: Type }) => {
                     )
                 </span>
             );
-        // return `${typeToString(target, vnames)}(${args.map((a) => typeToString(a, vnames)).join(', ')})`;
         case 'con':
             return <span>{t.name}</span>;
     }
