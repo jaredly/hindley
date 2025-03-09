@@ -21,7 +21,7 @@ const tests: ([string, string] | [string, string, true])[] = [
         }
         return 5;
     }`,
-        '(array(e)) => int',
+        '(array(d)) => int',
     ],
     ['[1,2]', 'array(int)'],
     [
@@ -58,14 +58,14 @@ const tests: ([string, string] | [string, string, true])[] = [
     // ],
     [`(arr) => arr.length`, '(array(c)) => int'],
     [`(arr) => {return arr.length}`, '(array(c)) => int'],
-    [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(array(c)) => array(c)'],
+    [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(array(g)) => array(g)'],
     [`for (let i = 0;i < 5;i += 1) {return i}`, 'void'],
     // [`(a) => {for (let i = 0;i < 5;i += 1) {return i}}`, 'int'],
     [`[...[], 10, ...[5]]`, 'array(int)'],
     [`{let ok = [];ok.push(1);ok}`, 'array(int)'],
     [`{let ok = [];if (true) {ok.push(1)};ok}`, 'array(int)'],
     [`{let ok = [];for (ok;true;ok) {ok.push(1)};ok}`, 'array(int)'],
-    [`[].push(1)`, '', true],
+    [`[].push(1)`, 'void'],
     // ['0 += 1', 'int'],
 ];
 
@@ -86,6 +86,7 @@ tests.forEach(([input, output, only]) => {
         });
         // console.log(parsed.result);
         resetState();
+        // console.log(parsed.result);
         const res = inferStmt(env, parsed.result);
         expect(res.value ? typeToString(res.value) : null).toEqual(output);
         // expect(parsed.result).toEqual('');

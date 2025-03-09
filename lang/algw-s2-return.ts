@@ -50,7 +50,7 @@ export type Suffix =
 
 const parseSmoosh = (base: Expr, suffixes: Suffix[], src: Src): Expr => {
     if (!suffixes.length) return base;
-    suffixes.forEach((suffix) => {
+    suffixes.forEach((suffix, i) => {
         switch (suffix.type) {
             case 'attribute':
                 // base = { type: 'attribute', target: base, attribute: suffix.attribute, src: mergeSrc(base.src, nodesSrc(suffix.attribute)) };
@@ -62,7 +62,12 @@ const parseSmoosh = (base: Expr, suffixes: Suffix[], src: Src): Expr => {
                 };
                 return;
             case 'call':
-                base = { type: 'app', target: base, args: suffix.items, src: mergeSrc(base.src, suffix.src) };
+                if (i > 0 && suffixes[i - 1].type === 'attribute' && base.type === 'app') {
+                    base.args.push(...suffix.items);
+                    base.src = mergeSrc(base.src, suffix.src);
+                } else {
+                    base = { type: 'app', target: base, args: suffix.items, src: mergeSrc(base.src, suffix.src) };
+                }
                 return;
             case 'index':
                 // base = { type: 'index', target: base, index: suffix.index, src: mergeSrc(base.src, suffix.src) };

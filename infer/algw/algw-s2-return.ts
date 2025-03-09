@@ -334,6 +334,7 @@ export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
         globalState.latestScope = tenv.scope;
         globalState.events.push({ type: 'scope', scope: tenv.scope });
     }
+    // console.log('infer expr', expr);
     // const old = globalState.subst;
     // globalState.subst = {};
     const type = inferExprInner(tenv, expr, asStmt);
@@ -520,7 +521,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
         }
 
         case 'app': {
-            console.log(`app`, expr.args.length);
+            // console.log(`app`, expr.args.length);
             // if (expr.args.length === 1) {
             const resultVar = newTypeVar({ type: 'apply-result', src: expr.src });
             globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
@@ -541,6 +542,8 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
             //     return { value: null, return: argType.return ?? targetType.return };
             // }
 
+            // console.log(expr.target, targetType.value);
+            // console.log('args', expr.args);
             unify(typeApply(globalState.subst, targetType.value!), tfns(args, resultVar));
             return { value: typeApply(globalState.subst, resultVar), return: argType.return ?? targetType.return };
             // }
