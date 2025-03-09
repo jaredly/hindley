@@ -348,7 +348,7 @@ export const App = () => {
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
-                <Sidebar latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} vnames={vnames} />
+                <Sidebar latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
             </div>
             <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(vnames)}</div>
             <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(glob.events[at])}</div>
@@ -359,29 +359,34 @@ export const App = () => {
     );
 };
 
-const RenderEvent = ({ event, vnames }: { event: Event; vnames: Record<string, string> }) => {
+const RenderEvent = ({ event }: { event: Event }) => {
     switch (event.type) {
         case 'new-var':
-            return <span>New Variable {vnames[event.name]}</span>;
+            return (
+                <span>
+                    New Variable {event.name}
+                    <div>{JSON.stringify(getGlobalState().tvarMeta[event.name])}</div>
+                </span>
+            );
         case 'infer':
             return (
                 <span>
-                    Inferred {JSON.stringify(event.src)} <RenderType t={event.value} vnames={vnames} />
+                    Inferred {JSON.stringify(event.src)} <RenderType t={event.value} />
                 </span>
             );
         case 'unify':
             return (
                 <div>
                     <div>
-                        <RenderType t={event.one} vnames={vnames} />
+                        <RenderType t={event.one} />
                     </div>
                     <div>
-                        <RenderType t={event.two} vnames={vnames} />
+                        <RenderType t={event.two} />
                     </div>
                     <div>
                         {Object.entries(event.subst).map(([key, type]) => (
                             <div key={key}>
-                                {vnames[key]} : <RenderType t={type} vnames={vnames} />
+                                {key} : <RenderType t={type} />
                             </div>
                         ))}
                     </div>
@@ -395,7 +400,6 @@ const RenderEvent = ({ event, vnames }: { event: Event; vnames: Record<string, s
 const Sidebar = ({
     subst,
     smap,
-    vnames,
     scope,
     types,
     nodes,
@@ -403,13 +407,18 @@ const Sidebar = ({
 }: {
     subst: Subst[];
     smap: Subst;
-    vnames: Record<string, string>;
     scope: Tenv['scope'];
     types: Record<string, Type>;
     nodes: Nodes;
     latest: Event;
 }) => {
-    const variables = {};
+    const variables: Record<string, number> = {};
+    Object.values(types).forEach((t) => {
+        const free = typeFree(t);
+        free.forEach((name) => {
+            variables[name] = (variables[name] || 0) + 1;
+        });
+    });
     return (
         <div>
             <div style={{ display: 'grid', marginBottom: 16, gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
@@ -420,12 +429,13 @@ const Sidebar = ({
                             <div>{k}</div>
                             <div>
                                 {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
-                                <RenderType t={typeApply(smap, scope[k].body)} vnames={vnames} />
+                                <RenderType t={typeApply(smap, scope[k].body)} />
                             </div>
                         </div>
                     ))}
             </div>
-            {latest ? <RenderEvent event={latest} vnames={vnames} /> : 'NOEV'}
+            {latest ? <RenderEvent event={latest} /> : 'NOEV'}
+            <pre>{JSON.stringify(variables, null, 2)}</pre>
         </div>
     );
     // First: variables in scope, minus builtins
@@ -528,10 +538,10 @@ const partition = (ctx: Ctx, children: string[]) => {
     return stack[0];
 };
 
-export const RenderType = ({ t, vnames }: { t: Type; vnames?: Record<string, string> }) => {
+export const RenderType = ({ t }: { t: Type }) => {
     switch (t.type) {
         case 'var':
-            return <span style={{ fontStyle: 'italic' }}>{vnames?.[t.name] ?? t.name}</span>;
+            return <span style={{ fontStyle: 'italic' }}>{t.name}</span>;
         case 'app':
             const args: Type[] = [t.arg];
             let target = t.target;
@@ -544,7 +554,7 @@ export const RenderType = ({ t, vnames }: { t: Type; vnames?: Record<string, str
                     <span>
                         (
                         {interleave(
-                            args.map((a, i) => <RenderType key={i} t={a} vnames={vnames} />),
+                            args.map((a, i) => <RenderType key={i} t={a} />),
                             (i) => (
                                 <span key={'c-' + i}>, </span>
                             ),
@@ -557,17 +567,17 @@ export const RenderType = ({ t, vnames }: { t: Type; vnames?: Record<string, str
                 return (
                     <span>
                         {'('}
-                        <RenderType t={args[0]} vnames={vnames} />
+                        <RenderType t={args[0]} />
                         {') => '}
-                        <RenderType t={args[1]} vnames={vnames} />
+                        <RenderType t={args[1]} />
                     </span>
                 );
             }
             return (
                 <span>
-                    <RenderType vnames={vnames} t={target} />(
+                    <RenderType t={target} />(
                     {interleave(
-                        args.map((a, i) => <RenderType key={i} t={a} vnames={vnames} />),
+                        args.map((a, i) => <RenderType key={i} t={a} />),
                         (i) => (
                             <span key={'c-' + i}>, </span>
                         ),

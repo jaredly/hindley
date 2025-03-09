@@ -219,26 +219,46 @@ export type Event =
     | { type: 'infer'; src: Src; value: Type }
     | { type: 'new-var'; name: string };
 
-type State = { nextId: number; subst: Subst; events: Event[]; latestScope?: Tenv['scope'] };
+type State = { nextId: number; subst: Subst; events: Event[]; tvarMeta: Record<string, TvarMeta>; latestScope?: Tenv['scope'] };
 
-let globalState: State = { nextId: 0, subst: {}, events: [] };
+type TvarMeta =
+    | { type: 'free'; prev: string }
+    | {
+          type: 'pat-var';
+          name: string;
+          src: Src;
+      }
+    | { type: 'apply-result'; src: Src }
+    | { type: 'pat-any'; src: Src };
+
+let globalState: State = { nextId: 0, subst: {}, events: [], tvarMeta: {} };
 export const resetState = () => {
-    globalState = { nextId: 0, subst: {}, events: [] };
+    globalState = { nextId: 0, subst: {}, events: [], tvarMeta: {} };
 };
 export const getGlobalState = () => globalState;
 
-export const newTypeVar = (name: string): Extract<Type, { type: 'var' }> => {
-    // console.log(new Error().stack!.split('\n').slice(1, 3).join('\n'));
-    const nname = `${name}:${globalState.nextId++}`;
-    globalState.events.push({ type: 'new-var', name: nname });
-    // console.log(`new type var ${name} -> ${nname}`);
-    return { type: 'var', name: nname };
+const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+const makeName = (n: number) => {
+    let res = '';
+    while (n >= alphabet.length) {
+        res = alphabet[n % alphabet.length] + res;
+        n = Math.floor(n / alphabet.length);
+    }
+    res = alphabet[n] + res;
+    return res;
+};
+
+export const newTypeVar = (meta: TvarMeta): Extract<Type, { type: 'var' }> => {
+    const name = makeName(globalState.nextId++);
+    globalState.events.push({ type: 'new-var', name });
+    globalState.tvarMeta[name] = meta;
+    return { type: 'var', name };
 };
 
 export const makeSubstForFree = (vars: string[]) => {
     const mapping: Subst = {};
     vars.forEach((id) => {
-        mapping[id] = newTypeVar(id);
+        mapping[id] = newTypeVar({ type: 'free', prev: id });
     });
     return mapping;
 };
@@ -338,7 +358,7 @@ export const inferStmt = (
         case 'let': {
             const { pat, init } = stmt;
             if (pat.type === 'var') {
-                const pv = newTypeVar(pat.name);
+                const pv = newTypeVar({ type: 'pat-var', name: pat.name, src: pat.src });
                 globalState.events.push({ type: 'infer', src: pat.src, value: pv });
                 const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
                 const valueType = inferExpr(self, init, false);
@@ -431,7 +451,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
             if (expr.args.length === 1) {
                 let argType: Type, boundEnv: Tenv;
                 if (expr.args[0].type === 'var') {
-                    argType = newTypeVar(expr.args[0].name);
+                    argType = newTypeVar({ type: 'pat-var', name: expr.args[0].name, src: expr.args[0].src });
                     boundEnv = { ...tenv, scope: { ...tenv.scope, [expr.args[0].name]: { vars: [], body: argType } } };
                 } else {
                     let scope;
@@ -462,7 +482,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
 
         case 'app': {
             if (expr.args.length === 1) {
-                const resultVar = newTypeVar('result');
+                const resultVar = newTypeVar({ type: 'apply-result', src: expr.src });
                 globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
                 let targetType = inferExpr(tenv, expr.target, false);
                 const argTenv = tenvApply(globalState.subst, tenv);
@@ -583,9 +603,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
 const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
     switch (pat.type) {
         case 'any':
-            return [newTypeVar('any'), {}];
+            return [newTypeVar({ type: 'pat-any', src: pat.src }), {}];
         case 'var': {
-            const v = newTypeVar(pat.name);
+            const v = newTypeVar({ type: 'pat-var', name: pat.name, src: pat.src });
             return [v, { [pat.name]: { vars: [], body: v } }];
         }
         case 'con': {

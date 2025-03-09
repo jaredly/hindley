@@ -2,11 +2,20 @@
 # Hm sidebar
 
 - [ ] highlight the thing we just inferred for the `infer` event.
-- [ ] I need a "unify" event, folks.
+- [x] I need a "unify" event, folks.
       so NOT actually a "subst" event, that'll be .. a subset of it? Because I want to
       collect all of the substs coming from a given unification.
 - [ ] honestly I want highlights for every event.
       for example, the unify event, I want to highlight thing things the types are coming from.
+
+- [x] remove vnames, have type variables have pedigree
+- [ ] types need a .src
+- [ ] the "variables" list should, on hover, highlight all the places where the variable is being used?
+  and maybe have a popover of the inferred types for each expression?
+- [ ] due to macro-ing, a given span could have a number of expressions associated with it.
+  I should give expressions unique IDs, so I can know what is a "duplicate" span declaration...
+  or I can just accept that there aren't going to be duplicates? but I do need a way to associate
+  a given thing with the right thing.
 
 
 # Instead of SUBST

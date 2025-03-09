@@ -9,11 +9,11 @@ const tests: ([string, string] | [string, string, true])[] = [
     [`{let x = 10; x}`, 'int'],
     [`(1, 2)`, '(int, int)'],
     [`{let (a, b) = (2, 3); a}`, 'int'],
-    [`(x) => {let (a, b) = x; a}`, `((a:1, b:2)) => a:1`],
+    [`(x) => {let (a, b) = x; a}`, `((b, c)) => b`],
     [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
     [`{let a = 2; let a = true; a}`, 'bool'],
     [`"hi"`, 'string'],
-    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => result:5, b:2)) => result:5'],
+    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => f, c)) => f'],
     [
         `(arr) => {
         if (arr.length <= 1) {
@@ -21,7 +21,7 @@ const tests: ([string, string] | [string, string, true])[] = [
         }
         return 5;
     }`,
-        '(array(k:4)) => int',
+        '(array(e)) => int',
     ],
     ['[1,2]', 'array(int)'],
     [
@@ -56,9 +56,9 @@ const tests: ([string, string] | [string, string, true])[] = [
     //     :}`,
     //     'int',
     // ],
-    [`(arr) => arr.length`, '(array(k:2)) => int'],
-    [`(arr) => {return arr.length}`, '(array(k:2)) => int'],
-    [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(array(result:2)) => array(result:2)'],
+    [`(arr) => arr.length`, '(array(c)) => int'],
+    [`(arr) => {return arr.length}`, '(array(c)) => int'],
+    [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(array(c)) => array(c)'],
     [`for (let i = 0;i < 5;i += 1) {return i}`, 'void'],
     // [`(a) => {for (let i = 0;i < 5;i += 1) {return i}}`, 'int'],
     [`[...[], 10, ...[5]]`, 'array(int)'],
