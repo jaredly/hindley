@@ -1,4 +1,14 @@
 
+# Hm sidebar
+
+- [ ] highlight the thing we just inferred for the `infer` event.
+- [ ] I need a "unify" event, folks.
+      so NOT actually a "subst" event, that'll be .. a subset of it? Because I want to
+      collect all of the substs coming from a given unification.
+- [ ] honestly I want highlights for every event.
+      for example, the unify event, I want to highlight thing things the types are coming from.
+
+
 # Instead of SUBST
 
 just show:

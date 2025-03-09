@@ -248,26 +248,27 @@ export const instantiate = (scheme: Scheme) => {
     return typeApply(subst, scheme.body);
 };
 
-export const addSubst = (name: string, type: Type) => {
-    globalState.events.push({ type: 'subst', name, value: type });
-    globalState.subst = composeSubst({ [name]: type }, globalState.subst);
-};
-
 export const varBind = (name: string, type: Type) => {
     if (type.type === 'var') {
         if (type.name === name) {
-            return;
+            return {};
         }
-        addSubst(name, type);
-        return;
+        return { [name]: type };
     }
     if (typeFree(type).includes(name)) {
         throw new Error(`Cycle found while unifying type with type variable: ${name}`);
     }
-    addSubst(name, type);
+    return { [name]: type };
 };
 
 export const unify = (one: Type, two: Type) => {
+    one = typeApply(globalState.subst, one);
+    two = typeApply(globalState.subst, two);
+    const subst = unifyInner(one, two);
+    globalState.subst = composeSubst(subst, globalState.subst);
+};
+
+export const unifyInner = (one: Type, two: Type): Subst => {
     if (one.type === 'var') {
         return varBind(one.name, two);
     }
@@ -275,13 +276,13 @@ export const unify = (one: Type, two: Type) => {
         return varBind(two.name, one);
     }
     if (one.type === 'con' && two.type === 'con') {
-        if (one.name === two.name) return;
+        if (one.name === two.name) return {};
         throw new Error(`Incompatible concrete types: ${one.name} vs ${two.name}`);
     }
     if (one.type === 'app' && two.type === 'app') {
-        unify(one.target, two.target);
-        unify(typeApply(globalState.subst, one.arg), typeApply(globalState.subst, two.arg));
-        return;
+        const ta = unifyInner(one.target, two.target);
+        const sa = unifyInner(typeApply(ta, one.arg), typeApply(ta, two.arg));
+        return composeSubst(sa, ta);
     }
     throw new Error(`incompatible types ${JSON.stringify(one)} : ${JSON.stringify(two)}`);
 };
