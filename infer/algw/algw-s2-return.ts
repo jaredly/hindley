@@ -214,7 +214,7 @@ export const generalize = (tenv: Tenv, t: Type): Scheme => {
 };
 
 export type Event =
-    | { type: 'subst'; name: string; value: Type }
+    | { type: 'unify'; one: Type; two: Type; subst: Subst }
     | { type: 'scope'; scope: Tenv['scope'] }
     | { type: 'infer'; src: Src; value: Type }
     | { type: 'new-var'; name: string };
@@ -265,6 +265,7 @@ export const unify = (one: Type, two: Type) => {
     one = typeApply(globalState.subst, one);
     two = typeApply(globalState.subst, two);
     const subst = unifyInner(one, two);
+    globalState.events.push({ type: 'unify', one, two, subst });
     globalState.subst = composeSubst(subst, globalState.subst);
 };
 

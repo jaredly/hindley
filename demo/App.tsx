@@ -4,6 +4,7 @@ import { childLocs, fromMap, Node, Nodes } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
 import {
     builtinEnv,
+    composeSubst,
     Event,
     Expr,
     getGlobalState,
@@ -293,9 +294,9 @@ export const App = () => {
 
     const { byLoc, subst, types, scope, smap } = useMemo(() => {
         const byLoc: Record<string, Type> = {};
-        const subst: { name: string; type: Type }[] = [];
+        const subst: Subst[] = [];
         const types: { src: Src; type: Type }[] = [];
-        const smap: Record<string, Type> = {};
+        let smap: Subst = {};
         let scope: Tenv['scope'] = {};
 
         for (let i = 0; i <= at; i++) {
@@ -310,19 +311,23 @@ export const App = () => {
                 }
                 types.push({ src: evt.src, type: evt.value });
             }
-            if (evt.type === 'subst') {
-                subst.push({ name: evt.name, type: evt.value });
-                Object.keys(smap).forEach((k) => (smap[k] = typeApply({ [evt.name]: evt.value }, smap[k])));
-                smap[evt.name] = evt.value;
+            if (evt.type === 'unify') {
+                subst.push(evt.subst);
+                smap = composeSubst(evt.subst, smap);
             }
+            // if (evt.type === 'subst') {
+            //     subst.push({ name: evt.name, type: evt.value });
+            //     Object.keys(smap).forEach((k) => (smap[k] = typeApply({ [evt.name]: evt.value }, smap[k])));
+            //     smap[evt.name] = evt.value;
+            // }
             if (evt.type === 'scope') {
                 scope = evt.scope;
             }
         }
 
-        subst.forEach((s) => {
-            s.type = typeApply(smap, s.type);
-        });
+        // subst.forEach((s) => {
+        //     s.type = typeApply(smap, s.type);
+        // });
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
@@ -364,11 +369,23 @@ const RenderEvent = ({ event, vnames }: { event: Event; vnames: Record<string, s
                     Inferred {JSON.stringify(event.src)} <RenderType t={event.value} vnames={vnames} />
                 </span>
             );
-        case 'subst':
+        case 'unify':
             return (
-                <span>
-                    {vnames[event.name]} : <RenderType t={event.value} vnames={vnames} />
-                </span>
+                <div>
+                    <div>
+                        <RenderType t={event.one} vnames={vnames} />
+                    </div>
+                    <div>
+                        <RenderType t={event.two} vnames={vnames} />
+                    </div>
+                    <div>
+                        {Object.entries(event.subst).map(([key, type]) => (
+                            <div key={key}>
+                                {vnames[key]} : <RenderType t={type} vnames={vnames} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             );
         case 'scope':
             return <span>scope</span>;
@@ -384,7 +401,7 @@ const Sidebar = ({
     nodes,
     latest,
 }: {
-    subst: { name: string; type: Type }[];
+    subst: Subst[];
     smap: Subst;
     vnames: Record<string, string>;
     scope: Tenv['scope'];
