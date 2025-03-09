@@ -65,6 +65,7 @@ const tests: ([string, string] | [string, string, true])[] = [
     [`{let ok = [];ok.push(1);ok}`, 'array(int)'],
     [`{let ok = [];if (true) {ok.push(1)};ok}`, 'array(int)'],
     [`{let ok = [];for (ok;true;ok) {ok.push(1)};ok}`, 'array(int)'],
+    [`[].push(1)`, '', true],
     // ['0 += 1', 'int'],
 ];
 

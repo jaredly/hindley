@@ -1,4 +1,6 @@
 
+iffff valueNull, what if I just make a variable for it?
+
 # Hm sidebar
 
 - [ ] highlight the thing we just inferred for the `infer` event.

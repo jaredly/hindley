@@ -17,7 +17,7 @@ export const builtinEnv = () => {
     const k: Type = { type: 'var', name: 'k' };
     const a: Type = { type: 'var', name: 'a' };
     const b: Type = { type: 'var', name: 'b' };
-    const tapp = (target: Type, arg: Type): Type => ({ type: 'app', arg, target });
+    const tapp = (target: Type, ...args: Type[]): Type => ({ type: 'app', args, target });
     const tcon = (name: string): Type => ({ type: 'con', name });
     builtinEnv.scope['null'] = concrete({ type: 'con', name: 'null' });
     builtinEnv.scope['true'] = concrete({ type: 'con', name: 'bool' });
@@ -36,8 +36,8 @@ export const builtinEnv = () => {
     builtinEnv.scope['<'] = concrete(tfns([tint, tint], tbool));
     builtinEnv.scope['<='] = concrete(tfns([tint, tint], tbool));
     builtinEnv.scope['='] = generic(['k'], tfns([k, k], tint));
-    builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tapp(tcon(','), a), b)));
-    builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(tapp(tcon(','), a), b) };
+    builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tcon(','), a, b)));
+    builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(tcon(','), a, b) };
     return builtinEnv;
 };
 
@@ -73,28 +73,25 @@ export type Pat =
     | { type: 'con'; name: string; args: Pat[]; src: Src }
     | { type: 'str'; value: string; src: Src }
     | { type: 'prim'; prim: Prim; src: Src };
-export type Type = { type: 'var'; name: string } | { type: 'app'; target: Type; arg: Type } | { type: 'con'; name: string };
+export type Type =
+    | { type: 'var'; name: string }
+    | { type: 'fn'; args: Type[]; result: Type }
+    | { type: 'app'; target: Type; args: Type[] }
+    | { type: 'con'; name: string };
 
 export const typeToString = (t: Type): string => {
     switch (t.type) {
         case 'var':
             return t.name;
         case 'app':
-            const args: Type[] = [t.arg];
-            let target = t.target;
-            while (target.type === 'app') {
-                args.unshift(target.arg);
-                target = target.target;
+            if (t.target.type === 'con' && t.target.name === ',') {
+                return `(${t.args.map((a) => typeToString(a)).join(', ')})`;
             }
-            if (target.type === 'con' && target.name === ',') {
-                return `(${args.map((a) => typeToString(a)).join(', ')})`;
-            }
-            if (target.type === 'con' && target.name === '->' && args.length === 2) {
-                return `(${typeToString(args[0])}) => ${typeToString(args[1])}`;
-            }
-            return `${typeToString(target)}(${args.map((a) => typeToString(a)).join(', ')})`;
+            return `${typeToString(t.target)}(${t.args.map((a) => typeToString(a)).join(', ')})`;
         case 'con':
             return t.name;
+        case 'fn':
+            return `(${t.args.map(typeToString)}) => ${typeToString(t.result)}`;
     }
 };
 
@@ -107,7 +104,9 @@ const typeEqual = (one: Type, two: Type): boolean => {
             return one.name === two.name;
         case 'app':
             if (two.type !== 'app') return false;
-            return typeEqual(one.target, two.target) && typeEqual(one.arg, two.arg);
+            return (
+                typeEqual(one.target, two.target) && one.args.length === two.args.length && one.args.every((arg, i) => typeEqual(arg, two.args[i]))
+            );
         case 'con':
             if (two.type !== 'con') return false;
             return one.name === two.name;
@@ -139,7 +138,9 @@ export const typeFree = (type: Type): string[] => {
         case 'con':
             return [];
         case 'app':
-            return merge(typeFree(type.target), typeFree(type.arg));
+            return type.args.reduce((result, arg) => merge(result, typeFree(arg)), typeFree(type.target));
+        case 'fn':
+            return type.args.reduce((result, arg) => merge(result, typeFree(arg)), typeFree(type.result));
     }
 };
 
@@ -154,7 +155,9 @@ export const typeApply = (subst: Subst, type: Type): Type => {
         case 'var':
             return subst[type.name] ?? type;
         case 'app':
-            return { type: 'app', target: typeApply(subst, type.target), arg: typeApply(subst, type.arg) };
+            return { type: 'app', target: typeApply(subst, type.target), args: type.args.map((arg) => typeApply(subst, arg)) };
+        case 'fn':
+            return { ...type, result: typeApply(subst, type.result), args: type.args.map((arg) => typeApply(subst, arg)) };
         default:
             return type;
     }
@@ -301,12 +304,29 @@ export const unifyInner = (one: Type, two: Type): Subst => {
         if (one.name === two.name) return {};
         throw new Error(`Incompatible concrete types: ${one.name} vs ${two.name}`);
     }
-    if (one.type === 'app' && two.type === 'app') {
-        const ta = unifyInner(one.target, two.target);
-        const sa = unifyInner(typeApply(ta, one.arg), typeApply(ta, two.arg));
-        return composeSubst(sa, ta);
+    if (one.type === 'fn' && two.type === 'fn') {
+        if (one.args.length !== two.args.length) {
+            console.log(typeToString(one));
+            console.log(typeToString(two));
+            throw new Error(`number of args is different: ${one.args.length} vs ${two.args.length}`);
+        }
+        let subst = unifyInner(one.result, two.result);
+        for (let i = 0; i < one.args.length; i++) {
+            subst = composeSubst(unifyInner(typeApply(subst, one.args[i]), typeApply(subst, two.args[i])), subst);
+        }
+        return subst;
     }
-    throw new Error(`incompatible types ${JSON.stringify(one)} : ${JSON.stringify(two)}`);
+    if (one.type === 'app' && two.type === 'app') {
+        if (one.args.length !== two.args.length) {
+            throw new Error(`number of args is different`);
+        }
+        let subst = unifyInner(one.target, two.target);
+        for (let i = 0; i < one.args.length; i++) {
+            subst = composeSubst(unifyInner(typeApply(subst, one.args[i]), typeApply(subst, two.args[i])), subst);
+        }
+        return subst;
+    }
+    throw new Error(`incompatible types \n${JSON.stringify(one)}\n${JSON.stringify(two)}`);
 };
 
 export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
@@ -324,8 +344,10 @@ export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
     return type;
 };
 
-export const tfn = (arg: Type, body: Type): Type => ({ type: 'app', target: { type: 'app', target: { type: 'con', name: '->' }, arg }, arg: body });
-export const tfns = (args: Type[], body: Type): Type => args.reduceRight((res, arg) => tfn(arg, res), body);
+export const tfn = (arg: Type, body: Type): Type => ({ type: 'fn', args: [arg], result: body });
+// ({ type: 'app', target: { type: 'app', target: { type: 'con', name: '->' }, arg }, arg: body });
+export const tfns = (args: Type[], body: Type): Type => ({ type: 'fn', args, result: body });
+// args.reduceRight((res, arg) => tfn(arg, res), body);
 
 const tenvWithScope = (tenv: Tenv, scope: Tenv['scope']): Tenv => ({
     ...tenv,
@@ -445,72 +467,95 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
             return { value: instantiate(got) };
         case 'str':
             return { value: { type: 'con', name: 'string' } };
-        case 'lambda':
+        case 'lambda': {
             if (!expr.args.length) {
                 throw new Error(`cant have an empty lambda sry`);
             }
-            if (expr.args.length === 1) {
-                let argType: Type, boundEnv: Tenv;
-                if (expr.args[0].type === 'var') {
-                    argType = newTypeVar({ type: 'pat-var', name: expr.args[0].name, src: expr.args[0].src });
-                    boundEnv = { ...tenv, scope: { ...tenv.scope, [expr.args[0].name]: { vars: [], body: argType } } };
-                } else {
-                    let scope;
-                    [argType, scope] = inferPattern(tenv, expr.args[0]);
-                    scope = scopeApply(globalState.subst, scope);
-                    boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
-                }
-                globalState.events.push({ type: 'infer', src: expr.args[0].src, value: argType });
+            // if (expr.args.length === 1) {
+            let scope: Tenv['scope'] = {};
+            let args: Type[] = [];
+            expr.args.forEach((pat) => {
+                let [argType, patScope] = inferPattern(tenv, pat);
+                patScope = scopeApply(globalState.subst, patScope);
+                args.push(argType);
+                Object.assign(scope, patScope);
+                globalState.events.push({ type: 'infer', src: pat.src, value: argType });
+            });
+            let boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
 
-                const bodyType = inferExpr(boundEnv, expr.body, false);
-                if (bodyType.value && bodyType.return) {
-                    unify(bodyType.value, bodyType.return);
-                }
-                argType = typeApply(globalState.subst, argType);
-                return { value: tfn(argType, bodyType.value ?? bodyType.return ?? { type: 'con', name: 'void' }) };
+            // let argType: Type, boundEnv: Tenv;
+            // if (expr.args[0].type === 'var') {
+            //     argType = newTypeVar({ type: 'pat-var', name: expr.args[0].name, src: expr.args[0].src });
+            //     boundEnv = { ...tenv, scope: { ...tenv.scope, [expr.args[0].name]: { vars: [], body: argType } } };
+            // } else {
+            //     let scope;
+            //     [argType, scope] = inferPattern(tenv, expr.args[0]);
+            //     scope = scopeApply(globalState.subst, scope);
+            //     boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
+            // }
+
+            const bodyType = inferExpr(boundEnv, expr.body, false);
+            if (bodyType.value && bodyType.return) {
+                unify(bodyType.value, bodyType.return);
             }
-            const [one, ...rest] = expr.args;
-            return inferExpr(
-                tenv,
-                {
-                    type: 'lambda',
-                    args: [one],
-                    body: { type: 'lambda', args: rest, body: expr.body, src: expr.src },
-                    src: expr.src,
-                },
-                asStmt,
-            );
+            // argType = typeApply(globalState.subst, argType);
+            return {
+                value: tfns(
+                    args.map((arg) => typeApply(globalState.subst, arg)),
+                    bodyType.value ?? bodyType.return ?? { type: 'con', name: 'void' },
+                ),
+            };
+            // }
+            // const [one, ...rest] = expr.args;
+            // return inferExpr(
+            //     tenv,
+            //     {
+            //         type: 'lambda',
+            //         args: [one],
+            //         body: { type: 'lambda', args: rest, body: expr.body, src: expr.src },
+            //         src: expr.src,
+            //     },
+            //     asStmt,
+            // );
+        }
 
         case 'app': {
-            if (expr.args.length === 1) {
-                const resultVar = newTypeVar({ type: 'apply-result', src: expr.src });
-                globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
-                let targetType = inferExpr(tenv, expr.target, false);
-                const argTenv = tenvApply(globalState.subst, tenv);
-                const argType = inferExpr(argTenv, expr.args[0], false);
+            console.log(`app`, expr.args.length);
+            // if (expr.args.length === 1) {
+            const resultVar = newTypeVar({ type: 'apply-result', src: expr.src });
+            globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
+            let targetType = inferExpr(tenv, expr.target, false);
+            const argTenv = tenvApply(globalState.subst, tenv);
 
-                if (argType.return && targetType.return) {
-                    unify(argType.return, targetType.return);
-                }
-                if (!argType.value || !targetType.value) {
-                    return { value: null, return: argType.return ?? targetType.return };
-                }
+            const args = expr.args.map((arg) => {
+                return inferExpr(argTenv, arg, false).value!;
+            });
+            const argType = inferExpr(argTenv, expr.args[0], false);
 
-                unify(typeApply(globalState.subst, targetType.value), tfn(argType.value, resultVar));
-                return { value: typeApply(globalState.subst, resultVar), return: argType.return ?? targetType.return };
-            }
-            if (!expr.args.length) return inferExpr(tenv, expr.target, asStmt);
-            const [one, ...rest] = expr.args;
-            return inferExpr(
-                tenv,
-                {
-                    type: 'app',
-                    target: { type: 'app', target: expr.target, args: [one], src: expr.src },
-                    args: rest,
-                    src: expr.src,
-                },
-                asStmt,
-            );
+            // STOPSHIP: handle returns
+            // if (argType.return && targetType.return) {
+            //     unify(argType.return, targetType.return);
+            // }
+            // STOPSHIP handle no value
+            // if (!argType.value || !targetType.value) {
+            //     return { value: null, return: argType.return ?? targetType.return };
+            // }
+
+            unify(typeApply(globalState.subst, targetType.value!), tfns(args, resultVar));
+            return { value: typeApply(globalState.subst, resultVar), return: argType.return ?? targetType.return };
+            // }
+            // if (!expr.args.length) return inferExpr(tenv, expr.target, asStmt);
+            // const [one, ...rest] = expr.args;
+            // return inferExpr(
+            //     tenv,
+            //     {
+            //         type: 'app',
+            //         target: { type: 'app', target: expr.target, args: [one], src: expr.src },
+            //         args: rest,
+            //         src: expr.src,
+            //     },
+            //     asStmt,
+            // );
         }
 
         case 'if': {
