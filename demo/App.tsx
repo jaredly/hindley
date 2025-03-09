@@ -1,6 +1,6 @@
 import React, { JSX, ReactElement, useMemo, useState } from 'react';
 import { js, lex } from '../lang/lexer';
-import { childLocs, fromMap, Node, Nodes } from '../lang/nodes';
+import { childLocs, fromMap, Node, Nodes, RecNodeT } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
 import {
     builtinEnv,
@@ -80,6 +80,7 @@ export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
 
 type Ctx = {
     nodes: Nodes;
+    higlight: string[];
     parsed: ParseResult<Stmt>;
     byLoc: Record<string, Type>;
     spans: Record<string, string[]>;
@@ -182,7 +183,11 @@ const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 
 const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     const meta = ctx.parsed.ctx.meta[node.loc];
-    const style = styles[meta?.kind as 'kwd'];
+    let style: React.CSSProperties = styles[meta?.kind as 'kwd'];
+    if (ctx.higlight.includes(node.loc)) {
+        if (!style) style = {};
+        style.backgroundColor = '#700';
+    }
     switch (node.type) {
         case 'id':
             return <span style={style}>{node.text}</span>;
@@ -274,8 +279,6 @@ export const App = () => {
     const { spans } = useMemo(() => {
         const spans: Record<string, string[]> = {};
 
-        const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-
         glob.events.forEach((evt) => {
             if (evt.type === 'infer' && evt.src.right) {
                 if (!spans[evt.src.left]) spans[evt.src.left] = [];
@@ -328,6 +331,9 @@ export const App = () => {
         return { byLoc, subst, types, scope, smap };
     }, [at]);
 
+    const esrc = eventSrc(glob.events[at]);
+    const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
+
     return (
         <div className="m-2">
             Hindley Milner visualization
@@ -339,7 +345,7 @@ export const App = () => {
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div>
                     {cst.roots.map((root) => (
-                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ multis, spans, nodes: cst.nodes, parsed, byLoc }} />
+                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ higlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc }} />
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
@@ -580,5 +586,31 @@ export const RenderType = ({ t }: { t: Type }) => {
             );
         case 'con':
             return <span>{t.name}</span>;
+    }
+};
+
+export const coveredLocs = (nodes: Nodes, left: string, right: string) => {
+    for (const node of Object.values(nodes)) {
+        const children = childLocs(node);
+        const li = children.indexOf(left);
+        if (li === -1) continue;
+        const ri = children.indexOf(right);
+        if (ri === -1) continue;
+        return children.slice(li, ri + 1);
+    }
+    return [left, right];
+};
+
+const eventSrc = (evt: Event) => {
+    switch (evt.type) {
+        case 'unify':
+            // return evt.
+            return;
+        case 'scope':
+            return;
+        case 'infer':
+            return evt.src;
+        case 'new-var':
+            return;
     }
 };
