@@ -232,6 +232,7 @@ type TvarMeta =
           name: string;
           src: Src;
       }
+    | { type: 'lambda-return'; src: Src }
     | { type: 'apply-result'; src: Src }
     | { type: 'pat-any'; src: Src };
 
@@ -472,8 +473,8 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
             if (!expr.args.length) {
                 throw new Error(`cant have an empty lambda sry`);
             }
-            // if (expr.args.length === 1) {
-            let scope: Tenv['scope'] = {};
+            const returnVar = newTypeVar({ type: 'lambda-return', src: expr.src });
+            let scope: Tenv['scope'] = { ['return']: { vars: [], body: returnVar } };
             let args: Type[] = [];
             expr.args.forEach((pat) => {
                 let [argType, patScope] = inferPattern(tenv, pat);
@@ -484,40 +485,16 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { retur
             });
             let boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
 
-            // let argType: Type, boundEnv: Tenv;
-            // if (expr.args[0].type === 'var') {
-            //     argType = newTypeVar({ type: 'pat-var', name: expr.args[0].name, src: expr.args[0].src });
-            //     boundEnv = { ...tenv, scope: { ...tenv.scope, [expr.args[0].name]: { vars: [], body: argType } } };
-            // } else {
-            //     let scope;
-            //     [argType, scope] = inferPattern(tenv, expr.args[0]);
-            //     scope = scopeApply(globalState.subst, scope);
-            //     boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
-            // }
-
             const bodyType = inferExpr(boundEnv, expr.body, false);
             if (bodyType.value && bodyType.return) {
                 unify(bodyType.value, bodyType.return);
             }
-            // argType = typeApply(globalState.subst, argType);
             return {
                 value: tfns(
                     args.map((arg) => typeApply(globalState.subst, arg)),
                     bodyType.value ?? bodyType.return ?? { type: 'con', name: 'void' },
                 ),
             };
-            // }
-            // const [one, ...rest] = expr.args;
-            // return inferExpr(
-            //     tenv,
-            //     {
-            //         type: 'lambda',
-            //         args: [one],
-            //         body: { type: 'lambda', args: rest, body: expr.body, src: expr.src },
-            //         src: expr.src,
-            //     },
-            //     asStmt,
-            // );
         }
 
         case 'app': {
