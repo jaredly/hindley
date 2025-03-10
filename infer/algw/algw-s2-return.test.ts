@@ -66,7 +66,7 @@ const tests: ([string, string] | [string, string, true])[] = [
     [`{let ok = [];if (true) {ok.push(1)};ok}`, 'array(int)'],
     [`{let ok = [];for (ok;true;ok) {ok.push(1)};ok}`, 'array(int)'],
     [`[].push(1)`, 'void'],
-    [`(a) => {if (a) {return 1}}`, ''],
+    [`(a) => {if (a) {return 1}}`, 'Incompatible concrete types: void vs int'],
     // ['0 += 1', 'int'],
 ];
 

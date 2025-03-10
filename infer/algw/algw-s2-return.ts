@@ -331,7 +331,7 @@ export const unifyInner = (one: Type, two: Type): Subst => {
     throw new Error(`incompatible types \n${JSON.stringify(one)}\n${JSON.stringify(two)}`);
 };
 
-export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
+export const inferExpr = (tenv: Tenv, expr: Expr) => {
     if (!globalState.latestScope || !equal(scopeApply(globalState.subst, globalState.latestScope), scopeApply(globalState.subst, tenv.scope))) {
         globalState.latestScope = tenv.scope;
         globalState.events.push({ type: 'scope', scope: tenv.scope });
@@ -339,10 +339,8 @@ export const inferExpr = (tenv: Tenv, expr: Expr, asStmt: boolean) => {
     // console.log('infer expr', expr);
     // const old = globalState.subst;
     // globalState.subst = {};
-    const type = inferExprInner(tenv, expr, asStmt);
-    if (type.value && !asStmt) {
-        globalState.events.push({ type: 'infer', src: expr.src, value: type.value });
-    }
+    const type = inferExprInner(tenv, expr);
+    globalState.events.push({ type: 'infer', src: expr.src, value: type });
     // globalState.subst = composeSubst(globalState.subst, old);
     return type;
 };
@@ -357,16 +355,7 @@ const tenvWithScope = (tenv: Tenv, scope: Tenv['scope']): Tenv => ({
     scope: { ...tenv.scope, ...scope },
 });
 
-const unifyReturns = (ts: (Type | null | undefined)[]) => {
-    const real = ts.filter((t) => t != null);
-    if (real.length < 2) return;
-    for (let i = 1; i < real.length; i++) {
-        unify(real[0], real[i]);
-    }
-    return typeApply(globalState.subst, real[0]);
-};
-
-export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; partial?: boolean; scope?: Tenv['scope'] } => {
+export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['scope'] } => {
     switch (stmt.type) {
         case 'return': {
             const value = newTypeVar({ type: 'return-any', src: stmt.src });
@@ -377,8 +366,8 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; partial?: bool
                 unify(tenv.scope['return'].body, { type: 'con', name: 'void' });
                 return { value };
             }
-            const inner = inferExpr(tenv, stmt.value, false);
-            unify(tenv.scope['return'].body, inner.value);
+            const inner = inferExpr(tenv, stmt.value);
+            unify(tenv.scope['return'].body, inner);
             return { value };
         }
         case 'let': {
@@ -387,34 +376,33 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; partial?: bool
                 const pv = newTypeVar({ type: 'pat-var', name: pat.name, src: pat.src });
                 globalState.events.push({ type: 'infer', src: pat.src, value: pv });
                 const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
-                const valueType = inferExpr(self, init, false);
-                unify(typeApply(globalState.subst, pv), valueType.value);
+                const valueType = inferExpr(self, init);
+                unify(typeApply(globalState.subst, pv), valueType);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
-                // globalState.events.push({ type: 'infer', src: pat.src, value: valueType.value });
+                // globalState.events.push({ type: 'infer', src: pat.src, value: valueType });
                 return {
-                    partial: true,
-                    scope: { [pat.name]: init.type === 'lambda' ? generalize(appliedEnv, valueType.value) : { vars: [], body: valueType.value } },
+                    scope: { [pat.name]: init.type === 'lambda' ? generalize(appliedEnv, valueType) : { vars: [], body: valueType } },
                     value: { type: 'con', name: 'void' },
                 };
             }
             let [type, scope] = inferPattern(tenv, pat);
-            const valueType = inferExpr(tenv, init, false);
-            unify(type, valueType.value);
+            const valueType = inferExpr(tenv, init);
+            unify(type, valueType);
             scope = scopeApply(globalState.subst, scope);
             return { scope: scope, value: { type: 'con', name: 'void' } };
         }
         case 'expr':
-            const value = inferExpr(tenv, stmt.expr, true);
-            return { partial: value.partial, value: value.value };
+            const value = inferExpr(tenv, stmt.expr);
+            return { value: value };
         case 'for': {
             const letter = inferStmt(tenv, stmt.init);
             const bound = letter.scope ? tenvWithScope(tenvApply(globalState.subst, tenv), letter.scope) : tenv;
-            const upter = inferExpr(bound, stmt.cond, false);
-            unify(upter.value ?? { type: 'con', name: 'void' }, { type: 'con', name: 'bool' });
-            const okk = inferExpr(bound, stmt.update, true);
-            const body = inferExpr(bound, stmt.body, true);
+            const upter = inferExpr(bound, stmt.cond);
+            unify(upter, { type: 'con', name: 'bool' });
+            const okk = inferExpr(bound, stmt.update);
+            const body = inferExpr(bound, stmt.body);
 
-            return { partial: body.partial, value: { type: 'con', name: 'void' } };
+            return { value: { type: 'con', name: 'void' } };
         }
         // case 'match':
         //     throw new Error('not right now');
@@ -452,16 +440,16 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; partial?: bool
     }
 };
 
-export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { partial?: boolean; value: Type } => {
+export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
     switch (expr.type) {
         case 'prim':
-            return { value: { type: 'con', name: expr.prim.type } };
+            return { type: 'con', name: expr.prim.type };
         case 'var':
             const got = tenv.scope[expr.name];
             if (!got) throw new Error(`variable not found in scope ${expr.name}`);
-            return { value: instantiate(got) };
+            return instantiate(got);
         case 'str':
-            return { value: { type: 'con', name: 'string' } };
+            return { type: 'con', name: 'string' };
         case 'lambda': {
             if (!expr.args.length) {
                 throw new Error(`cant have an empty lambda sry`);
@@ -478,15 +466,13 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { parti
             });
             let boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
 
-            const bodyType = inferExpr(boundEnv, expr.body, false);
-            unify(bodyType.value, typeApply(globalState.subst, returnVar));
-            return {
-                value: tfns(
-                    args.map((arg) => typeApply(globalState.subst, arg)),
-                    typeApply(globalState.subst, bodyType.value),
-                    // bodyType.value ?? bodyType.return ?? { type: 'con', name: 'void' },
-                ),
-            };
+            const bodyType = inferExpr(boundEnv, expr.body);
+            unify(bodyType, typeApply(globalState.subst, returnVar));
+            return tfns(
+                args.map((arg) => typeApply(globalState.subst, arg)),
+                typeApply(globalState.subst, returnVar),
+                // bodyType.value ?? bodyType.return ?? { type: 'con', name: 'void' },
+            );
         }
 
         case 'app': {
@@ -494,29 +480,19 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { parti
             // if (expr.args.length === 1) {
             const resultVar = newTypeVar({ type: 'apply-result', src: expr.src });
             globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
-            let targetType = inferExpr(tenv, expr.target, false);
+            let targetType = inferExpr(tenv, expr.target);
             const argTenv = tenvApply(globalState.subst, tenv);
 
             const args = expr.args.map((arg) => {
-                return inferExpr(argTenv, arg, false).value!;
+                return inferExpr(argTenv, arg);
             });
-            const argType = inferExpr(argTenv, expr.args[0], false);
-
-            // STOPSHIP: handle returns
-            // if (argType.return && targetType.return) {
-            //     unify(argType.return, targetType.return);
-            // }
-            // STOPSHIP handle no value
-            // if (!argType.value || !targetType.value) {
-            //     return { value: null, return: argType.return ?? targetType.return };
-            // }
 
             // console.log(expr.target, targetType.value);
             // console.log('args', expr.args);
-            unify(typeApply(globalState.subst, targetType.value!), tfns(args, resultVar));
-            return { value: typeApply(globalState.subst, resultVar) };
+            unify(typeApply(globalState.subst, targetType), tfns(args, resultVar));
+            return typeApply(globalState.subst, resultVar);
             // }
-            // if (!expr.args.length) return inferExpr(tenv, expr.target, asStmt);
+            // if (!expr.args.length) return inferExpr(tenv, expr.target, );
             // const [one, ...rest] = expr.args;
             // return inferExpr(
             //     tenv,
@@ -526,29 +502,25 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { parti
             //         args: rest,
             //         src: expr.src,
             //     },
-            //     asStmt,
             // );
         }
 
         case 'if': {
-            const cond = inferExpr(tenv, expr.cond, false);
-            unify(cond.value, { type: 'con', name: 'bool' });
+            const cond = inferExpr(tenv, expr.cond);
+            unify(cond, { type: 'con', name: 'bool' });
 
-            const one = inferExpr(tenv, expr.yes, true);
-            const two = expr.no ? inferExpr(tenv, expr.no, true) : undefined;
-            const twov = two ? two.value : { type: 'con' as const, name: 'void' };
-            if (!asStmt && one.value && twov) {
-                unify(one.value, twov);
-            }
-            return { value: one.value };
+            const one = inferExpr(tenv, expr.yes);
+            const two = expr.no ? inferExpr(tenv, expr.no) : undefined;
+            const twov = two ? two : { type: 'con' as const, name: 'void' };
+            unify(one, twov);
+            return one;
         }
         case 'block': {
             if (!expr.stmts.length) {
-                return { value: { type: 'con', name: 'void' } };
+                return { type: 'con', name: 'void' };
             }
             let scope = {};
             let value: Type | null = null;
-            let partial: undefined | boolean = undefined;
             for (let inner of expr.stmts) {
                 const applied = tenvApply(globalState.subst, tenv);
                 const res = inferStmt({ ...applied, scope: { ...applied.scope, ...scope } }, inner);
@@ -558,10 +530,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr, asStmt: boolean): { parti
                 value = res.value;
             }
             if (!value) throw new Error('how did we get here');
-            return {
-                partial,
-                value: typeApply(globalState.subst, value),
-            };
+            return typeApply(globalState.subst, value);
         }
         // case 'array': {
         //     // expr.items
