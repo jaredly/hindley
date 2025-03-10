@@ -20,6 +20,8 @@ import {
     typeToString,
 } from '../infer/algw/algw-s2-return';
 import { Src } from '../lang/parse-dsl';
+import { RenderEvent } from './RenderEvent';
+import { RenderType } from './RenderType';
 
 const env = builtinEnv();
 
@@ -270,7 +272,7 @@ const makeName = (n: number) => {
 };
 
 export const App = () => {
-    const [at, setAt] = useState((glob.events.length / 2) | 0);
+    const [at, setAt] = useState(13);
 
     const multis = useMemo(() => {
         const multis: Record<string, true> = {};
@@ -366,44 +368,6 @@ export const App = () => {
             {/* <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div> */}
         </div>
     );
-};
-
-const RenderEvent = ({ event }: { event: Event }) => {
-    switch (event.type) {
-        case 'new-var':
-            return (
-                <span>
-                    New Variable {event.name}
-                    <div>{JSON.stringify(getGlobalState().tvarMeta[event.name])}</div>
-                </span>
-            );
-        case 'infer':
-            return (
-                <span>
-                    Inferred {JSON.stringify(event.src)} <RenderType t={event.value} />
-                </span>
-            );
-        case 'unify':
-            return (
-                <div>
-                    <div>
-                        <RenderType t={event.one} />
-                    </div>
-                    <div>
-                        <RenderType t={event.two} />
-                    </div>
-                    <div>
-                        {Object.entries(event.subst).map(([key, type]) => (
-                            <div key={key}>
-                                {key} : <RenderType t={type} />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        case 'scope':
-            return <span>scope</span>;
-    }
 };
 
 const Sidebar = ({
@@ -545,64 +509,6 @@ const partition = (ctx: Ctx, children: string[]) => {
         throw new Error('didnt clen up all stacks');
     }
     return stack[0];
-};
-
-export const RenderType = ({ t }: { t: Type }) => {
-    switch (t.type) {
-        case 'var':
-            return <span style={{ fontStyle: 'italic' }}>{t.name}</span>;
-        case 'fn':
-            return (
-                <span>
-                    {'('}
-                    {interleave(
-                        t.args.map((arg, i) => <RenderType t={arg} key={i} />),
-                        (i) => (
-                            <span key={`sep-${i}`}>,&nbsp;</span>
-                        ),
-                    )}
-                    {') => '}
-                    <RenderType t={t.result} />
-                </span>
-            );
-        case 'app':
-            const args: Type[] = t.args;
-            let target = t.target;
-            // while (target.type === 'app') {
-            //     args.unshift(target.arg);
-            //     target = target.target;
-            // }
-            if (target.type === 'con' && target.name === ',') {
-                return (
-                    <span>
-                        (
-                        {interleave(
-                            args.map((a, i) => <RenderType key={i} t={a} />),
-                            (i) => (
-                                <span key={'c-' + i}>, </span>
-                            ),
-                        )}
-                        )
-                    </span>
-                );
-            }
-            if (target.type === 'con' && target.name === '->' && args.length === 2) {
-            }
-            return (
-                <span>
-                    <RenderType t={target} />(
-                    {interleave(
-                        args.map((a, i) => <RenderType key={i} t={a} />),
-                        (i) => (
-                            <span key={'c-' + i}>, </span>
-                        ),
-                    )}
-                    )
-                </span>
-            );
-        case 'con':
-            return <span>{t.name}</span>;
-    }
 };
 
 export const coveredLocs = (nodes: Nodes, left: string, right: string) => {
