@@ -22,21 +22,31 @@ import {
 import { Src } from '../lang/parse-dsl';
 
 const env = builtinEnv();
-const text = `{\nlet quicksort = (arr) => {
-if (arr.length <= 1) {
-return arr}
-let pivot = arr[arr.length - 1]
-let leftArr = []
-let rightArr = []
-for (let i = 0; i < arr.length; i += 1) {
-if (arr[i] <= pivot) {
-    leftArr.push(arr[i])
-} else {
-    rightArr.push(arr[i])
+
+// const text = `{\nlet quicksort = (arr) => {
+// if (arr.length <= 1) {
+// return arr}
+// let pivot = arr[arr.length - 1]
+// let leftArr = []
+// let rightArr = []
+// for (let i = 0; i < arr.length; i += 1) {
+// if (arr[i] <= pivot) {
+//     leftArr.push(arr[i])
+// } else {
+//     rightArr.push(arr[i])
+// }
+// }
+// return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
+// };quicksort}`;
+
+const text = `{
+let fib = (n) => {
+if (n <= 1) {return 1}
+return fib(n - 1) + fib(n - 2)
 }
-}
-return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
-};quicksort}`;
+fib
+}`;
+
 // const text = `(x) => {let (a, _) = x; a(2)}`;
 const cst = lex(js, text);
 // console.log(JSON.stringify(cst, null, 2));
@@ -541,6 +551,20 @@ export const RenderType = ({ t }: { t: Type }) => {
     switch (t.type) {
         case 'var':
             return <span style={{ fontStyle: 'italic' }}>{t.name}</span>;
+        case 'fn':
+            return (
+                <span>
+                    {'('}
+                    {interleave(
+                        t.args.map((arg, i) => <RenderType t={arg} key={i} />),
+                        (i) => (
+                            <span key={`sep-${i}`}>,&nbsp;</span>
+                        ),
+                    )}
+                    {') => '}
+                    <RenderType t={t.result} />
+                </span>
+            );
         case 'app':
             const args: Type[] = t.args;
             let target = t.target;
@@ -563,14 +587,6 @@ export const RenderType = ({ t }: { t: Type }) => {
                 );
             }
             if (target.type === 'con' && target.name === '->' && args.length === 2) {
-                return (
-                    <span>
-                        {'('}
-                        <RenderType t={args[0]} />
-                        {') => '}
-                        <RenderType t={args[1]} />
-                    </span>
-                );
             }
             return (
                 <span>

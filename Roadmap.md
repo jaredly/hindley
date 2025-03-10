@@ -1,7 +1,12 @@
 
 iffff valueNull, what if I just make a variable for it?
 
-- [ ] instead of tracking a /return/, just have a `return` in scope.
+- [x] instead of tracking a /return/, just have a `return` in scope.
+  Ok that made so many things so much better.
+
+
+Unification animation ... should I do that now?
+
 
 
 # Hm sidebar
