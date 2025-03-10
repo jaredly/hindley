@@ -542,12 +542,12 @@ export const RenderType = ({ t }: { t: Type }) => {
         case 'var':
             return <span style={{ fontStyle: 'italic' }}>{t.name}</span>;
         case 'app':
-            const args: Type[] = [t.arg];
+            const args: Type[] = t.args;
             let target = t.target;
-            while (target.type === 'app') {
-                args.unshift(target.arg);
-                target = target.target;
-            }
+            // while (target.type === 'app') {
+            //     args.unshift(target.arg);
+            //     target = target.target;
+            // }
             if (target.type === 'con' && target.name === ',') {
                 return (
                     <span>

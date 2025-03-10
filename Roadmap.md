@@ -1,6 +1,9 @@
 
 iffff valueNull, what if I just make a variable for it?
 
+- [ ] instead of tracking a /return/, just have a `return` in scope.
+
+
 # Hm sidebar
 
 - [ ] highlight the thing we just inferred for the `infer` event.
