@@ -66,6 +66,7 @@ const tests: ([string, string] | [string, string, true])[] = [
     [`{let ok = [];if (true) {ok.push(1)};ok}`, 'array(int)'],
     [`{let ok = [];for (ok;true;ok) {ok.push(1)};ok}`, 'array(int)'],
     [`[].push(1)`, 'void'],
+    [`(a) => {if (a) {return 1}}`, ''],
     // ['0 += 1', 'int'],
 ];
 
@@ -87,8 +88,14 @@ tests.forEach(([input, output, only]) => {
         // console.log(parsed.result);
         resetState();
         // console.log(parsed.result);
-        const res = inferStmt(env, parsed.result);
-        expect(res.value ? typeToString(res.value) : null).toEqual(output);
+        let found;
+        try {
+            const res = inferStmt(env, parsed.result).value;
+            found = res ? typeToString(res) : '';
+        } catch (err) {
+            found = (err as Error).message;
+        }
+        expect(found).toEqual(output);
         // expect(parsed.result).toEqual('');
     });
 });
