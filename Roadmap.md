@@ -8,6 +8,18 @@ iffff valueNull, what if I just make a variable for it?
 Unification animation ... should I do that now?
 
 
+Ok, so we want to have, like a stack.
+
+and, I want there to be ... a way to indicate like, holes? in forms.
+and as we go through, the holes get filled.
+ALSO to give context to any `unify`. like it needs to be very clear where
+that unify is coming from.
+
+ALSO I don't like the 'new type var' events. I don't think it's useful to report.
+
+Algorithm W' is interesting. (On the unification of substitutions in type inference)
+and probably worth implementing.
+Algorithm M (Proofs about a folklore let-polymorphic type inference algorithm), which passes down an "expected type", certainly has some benefits, when the type of the container is known already.
 
 # Hm sidebar
 

@@ -217,11 +217,15 @@ export const generalize = (tenv: Tenv, t: Type): Scheme => {
     };
 };
 
+export type StackValue = { type: 'let'; pat: Type };
+
 export type Event =
     | { type: 'unify'; one: Type; two: Type; subst: Subst }
     | { type: 'scope'; scope: Tenv['scope'] }
     | { type: 'infer'; src: Src; value: Type }
-    | { type: 'new-var'; name: string };
+    | { type: 'new-var'; name: string }
+    | { type: 'stack-push'; value: StackValue }
+    | { type: 'stack-pop' };
 
 type State = { nextId: number; subst: Subst; events: Event[]; tvarMeta: Record<string, TvarMeta>; latestScope?: Tenv['scope'] };
 
@@ -256,7 +260,7 @@ const makeName = (n: number) => {
 
 export const newTypeVar = (meta: TvarMeta): Extract<Type, { type: 'var' }> => {
     const name = makeName(globalState.nextId++);
-    globalState.events.push({ type: 'new-var', name });
+    // globalState.events.push({ type: 'new-var', name });
     globalState.tvarMeta[name] = meta;
     return { type: 'var', name };
 };
@@ -374,11 +378,13 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
             const { pat, init } = stmt;
             if (pat.type === 'var') {
                 const pv = newTypeVar({ type: 'pat-var', name: pat.name, src: pat.src });
+                // globalState.events.push({ type: 'stack-push', value: { type: 'let', pat: pv } });
                 globalState.events.push({ type: 'infer', src: pat.src, value: pv });
                 const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
                 const valueType = inferExpr(self, init);
                 unify(typeApply(globalState.subst, pv), valueType);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
+                // globalState.events.push({ type: 'stack-pop' });
                 // globalState.events.push({ type: 'infer', src: pat.src, value: valueType });
                 return {
                     scope: { [pat.name]: init.type === 'lambda' ? generalize(appliedEnv, valueType) : { vars: [], body: valueType } },
@@ -386,9 +392,11 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
                 };
             }
             let [type, scope] = inferPattern(tenv, pat);
-            const valueType = inferExpr(tenv, init);
-            unify(type, valueType);
+            // globalState.events.push({ type: 'stack-push', value: { type: 'let', pat: type } });
+            const valueType = inferExpr(tenvWithScope(tenv, scope), init);
+            unify(typeApply(globalState.subst, type), valueType);
             scope = scopeApply(globalState.subst, scope);
+            // globalState.events.push({ type: 'stack-pop' });
             return { scope: scope, value: { type: 'con', name: 'void' } };
         }
         case 'expr':
@@ -467,6 +475,11 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             let boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
 
             const bodyType = inferExpr(boundEnv, expr.body);
+            // This is unifying the inferred type of the lambda body
+            // (which should be hoverable) with any `return` forms
+            // we encountered.
+            // IF `returnVar` has no substs, or IF bodyType is a
+            // substless vbl, we can do this ~quietly.
             unify(bodyType, typeApply(globalState.subst, returnVar));
             return tfns(
                 args.map((arg) => typeApply(globalState.subst, arg)),
