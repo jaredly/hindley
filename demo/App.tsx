@@ -29,8 +29,9 @@ import { ShowStacks } from './ShowText';
 const env = builtinEnv();
 
 const examples = {
-    One: `let f = (arg) => {let (one, two) = arg; one + 2}`,
-    Two: '{let names = [];names.push("Kai")}',
+    One: `let f = (arg) => {
+    let (one, two) = arg; one + 2}`,
+    Two: '{\nlet names = [];names.push("Kai")}',
 };
 
 // const text = `{\nlet quicksort = (arr) => {

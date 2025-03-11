@@ -23,12 +23,12 @@ export const builtinEnv = () => {
     builtinEnv.scope['null'] = concrete({ type: 'con', name: 'null' });
     builtinEnv.scope['true'] = concrete({ type: 'con', name: 'bool' });
     builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool' });
-    builtinEnv.scope['length'] = generic(['k'], tfn(tapp(tcon('array'), k), tint));
-    builtinEnv.scope['index'] = generic(['k'], tfns([tapp(tcon('array'), k), tint], k));
-    builtinEnv.scope['push'] = generic(['k'], tfns([tapp(tcon('array'), k), k], tcon('void')));
-    builtinEnv.scope['concat'] = generic(['k'], tfns([tapp(tcon('array'), k), tapp(tcon('array'), k)], tapp(tcon('array'), k)));
-    builtinEnv.scope['[]'] = generic(['k'], tapp(tcon('array'), k));
-    builtinEnv.scope['::'] = generic(['k'], tfns([k, tapp(tcon('array'), k)], tapp(tcon('array'), k)));
+    builtinEnv.scope['length'] = generic(['k'], tfn(tapp(tcon('Array'), k), tint));
+    builtinEnv.scope['index'] = generic(['k'], tfns([tapp(tcon('Array'), k), tint], k));
+    builtinEnv.scope['push'] = generic(['k'], tfns([tapp(tcon('Array'), k), k], tcon('void')));
+    builtinEnv.scope['concat'] = generic(['k'], tfns([tapp(tcon('Array'), k), tapp(tcon('Array'), k)], tapp(tcon('Array'), k)));
+    builtinEnv.scope['[]'] = generic(['k'], tapp(tcon('Array'), k));
+    builtinEnv.scope['::'] = generic(['k'], tfns([k, tapp(tcon('Array'), k)], tapp(tcon('Array'), k)));
     builtinEnv.scope['void'] = concrete({ type: 'con', name: 'void' });
     builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['+='] = concrete(tfns([tint, tint], tint));
@@ -62,7 +62,7 @@ export type Expr =
     | Block
     | { type: 'if'; cond: Expr; yes: Block; no?: Expr; src: Src }
     | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src }
-    // | { type: 'array'; items: (Expr | Spread<Expr>)[]; src: Src }
+    // | { type: 'Array'; items: (Expr | Spread<Expr>)[]; src: Src }
     | { type: 'prim'; prim: Prim; src: Src }
     | { type: 'var'; name: string; src: Src }
     | { type: 'str'; value: string; src: Src }
@@ -675,7 +675,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             if (!value) throw new Error('how did we get here');
             return typeApply(globalState.subst, value);
         }
-        // case 'array': {
+        // case 'Array': {
         //     // expr.items
         // }
 

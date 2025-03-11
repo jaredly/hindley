@@ -49,14 +49,15 @@ export const RenderType = ({ t }: { t: Type }) => {
             }
             return (
                 <span style={{ color: colors.punct }}>
-                    <RenderType t={target} />(
+                    <RenderType t={target} />
+                    &lt;
                     {interleave(
                         args.map((a, i) => <RenderType key={i} t={a} />),
                         (i) => (
                             <span key={'c-' + i}>, </span>
                         ),
                     )}
-                    )
+                    &gt;
                 </span>
             );
         case 'con':
