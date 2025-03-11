@@ -398,7 +398,7 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
             if (pat.type === 'var') {
                 stackReplace(src, kwd('let'), hole(true), '=', hole());
                 const pv = newTypeVar({ type: 'pat-var', name: pat.name, src: pat.src });
-                stackPush(src, pat.name, '->', typ(pv));
+                stackPush(pat.src, pat.name, '->', typ(pv));
                 stackBreak();
                 stackPop();
                 stackReplace(src, kwd('let'), typ(pv), '=', hole());
@@ -482,11 +482,23 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
 export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
     switch (expr.type) {
         case 'prim':
-            return { type: 'con', name: expr.prim.type };
+            const t: Type = { type: 'con', name: expr.prim.type };
+            stackPush(expr.src, kwd(expr.prim.value + ''), '->', typ(t));
+            stackBreak();
+            stackPop();
+            return t;
         case 'var':
             const got = tenv.scope[expr.name];
             if (!got) throw new Error(`variable not found in scope ${expr.name}`);
-            return instantiate(got);
+            stackPush(expr.src, kwd(expr.name), '->', typ(got.body));
+            stackBreak();
+            const inst = instantiate(got);
+            if (got.vars.length) {
+                stackReplace(expr.src, kwd(expr.name), '->', typ(got.body));
+                stackBreak();
+            }
+            stackPop();
+            return inst;
         case 'str':
             return { type: 'con', name: 'string' };
         case 'lambda': {

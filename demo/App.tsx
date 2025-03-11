@@ -150,7 +150,6 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                     {'('}
                 </span>
             ) : null}
-            {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
             <span
                 style={
                     multiline
@@ -161,6 +160,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                           }
                 }
             >
+                {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
                 {num ? <Num n={num} /> : null}
                 {children}
             </span>
@@ -267,12 +267,31 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 type OneStack = { text: StackText[]; src: Src };
 
 export const App = () => {
-    const [at, setAt] = useState(13);
+    const [at, setAt] = useState(0);
 
-    const stacks = useMemo(() => {
+    // const stack = useMemo(() => {
+    // }, [at]);
+
+    const breaks = useMemo(() => {
+        let num = 0;
+        glob.events.forEach((e) => {
+            if (e.type === 'stack-break') {
+                num++;
+            }
+        });
+        return num;
+    }, []);
+
+    const { byLoc, subst, types, scope, smap, stack } = useMemo(() => {
+        const byLoc: Record<string, Type> = {};
+        const subst: Subst[] = [];
+        const types: { src: Src; type: Type }[] = [];
+        let smap: Subst = {};
+        let scope: Tenv['scope'] = {};
+
         const stacks: OneStack[][] = [];
         const stack: OneStack[] = [];
-        for (let i = 0; i <= at; i++) {
+        for (let i = 0; i <= glob.events.length && at >= stacks.length; i++) {
             const evt = glob.events[i];
             switch (evt.type) {
                 case 'stack-push':
@@ -285,52 +304,11 @@ export const App = () => {
                     stacks.push(stack.slice());
                     break;
             }
-        }
-        return stacks.length ? [stacks[stacks.length - 1]] : [];
-    }, [at]);
+            // }
+            // // return stacks[at]; //.length ? [stacks[stacks.length - 1]] : [];
 
-    const stack = stacks.length ? stacks[0] : undefined;
-    const stackSrc: Record<string, number> = {};
-    stack?.forEach((item, i) => {
-        stackSrc[srcKey(item.src)] = i + 1;
-    });
-
-    const multis = useMemo(() => {
-        const multis: Record<string, true> = {};
-        cst.roots.forEach((root) =>
-            traverse(root, cst.nodes, (node, path) => {
-                if (node.type === 'list' && node.forceMultiline) {
-                    console.log('found one', node, path);
-                    path.forEach((id) => (multis[id] = true));
-                    multis[node.loc] = true;
-                }
-            }),
-        );
-        return multis;
-    }, [cst]);
-
-    const { spans } = useMemo(() => {
-        const spans: Record<string, string[]> = {};
-
-        glob.events.forEach((evt) => {
-            if (evt.type === 'infer' && evt.src.right) {
-                if (!spans[evt.src.left]) spans[evt.src.left] = [];
-                if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
-            }
-        });
-
-        return { spans };
-    }, []);
-
-    const { byLoc, subst, types, scope, smap } = useMemo(() => {
-        const byLoc: Record<string, Type> = {};
-        const subst: Subst[] = [];
-        const types: { src: Src; type: Type }[] = [];
-        let smap: Subst = {};
-        let scope: Tenv['scope'] = {};
-
-        for (let i = 0; i <= at; i++) {
-            const evt = glob.events[i];
+            // for (let i = 0; i <= at; i++) {
+            // const evt = glob.events[i];
             if (evt.type === 'infer') {
                 if (evt.src.right) {
                     // if (!spans[evt.src.left]) spans[evt.src.left] = [];
@@ -361,17 +339,56 @@ export const App = () => {
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
-        return { byLoc, subst, types, scope, smap };
+        return { byLoc, subst, types, scope, smap, stack: stacks[at] };
     }, [at]);
 
-    const esrc = eventSrc(glob.events[at]);
-    const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
+    // const stack = stacks.length ? stacks[at] : undefined;
+    const stackSrc: Record<string, number> = {};
+    stack?.forEach((item, i) => {
+        stackSrc[srcKey(item.src)] = i + 1;
+    });
+    console.log(stackSrc);
+
+    const multis = useMemo(() => {
+        const multis: Record<string, true> = {};
+        cst.roots.forEach((root) =>
+            traverse(root, cst.nodes, (node, path) => {
+                if (node.type === 'list' && node.forceMultiline) {
+                    console.log('found one', node, path);
+                    path.forEach((id) => (multis[id] = true));
+                    multis[node.loc] = true;
+                }
+            }),
+        );
+        return multis;
+    }, [cst]);
+
+    const { spans } = useMemo(() => {
+        const spans: Record<string, string[]> = {};
+
+        glob.events.forEach((evt) => {
+            if (evt.type === 'infer' && evt.src.right) {
+                if (!spans[evt.src.left]) spans[evt.src.left] = [];
+                if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
+            }
+            if (evt.type === 'stack-push' && evt.src.right) {
+                if (!spans[evt.src.left]) spans[evt.src.left] = [];
+                if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
+            }
+        });
+
+        return { spans };
+    }, []);
+
+    // const esrc = eventSrc(glob.events[at]);
+    // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
+    const allLocs: string[] = [];
 
     return (
         <div className="m-2">
             Hindley Milner visualization
             <div>
-                <input type="range" min="0" max={glob.events.length - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
+                <input type="range" min="0" max={breaks - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
                 {at}
             </div>
             <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
