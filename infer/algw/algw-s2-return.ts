@@ -582,7 +582,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             // TODO: handle else
             stackPush(kwd('if'), '(', hole(), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));
             stackBreak();
-            stackPush(kwd('if'), '(', hole(true), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));
+            stackReplace(kwd('if'), '(', hole(true), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));
             const cond = inferExpr(tenv, expr.cond);
             unify(cond, { type: 'con', name: 'bool' });
             stackReplace(kwd('if'), '(', typ(typeApply(globalState.subst, cond)), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));

@@ -11,6 +11,7 @@ import {
     inferExpr,
     inferStmt,
     resetState,
+    StackText,
     Stmt,
     Subst,
     Tenv,
@@ -21,7 +22,7 @@ import {
 } from '../infer/algw/algw-s2-return';
 import { Src } from '../lang/parse-dsl';
 import { RenderEvent } from './RenderEvent';
-import { RenderType } from './RenderType';
+import { colors, RenderType } from './RenderType';
 
 const env = builtinEnv();
 
@@ -260,19 +261,32 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     }
 };
 
-const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-const makeName = (n: number) => {
-    let res = '';
-    while (n >= alphabet.length) {
-        res = alphabet[n % alphabet.length] + res;
-        n = Math.floor(n / alphabet.length);
-    }
-    res = alphabet[n] + res;
-    return res;
-};
-
 export const App = () => {
     const [at, setAt] = useState(13);
+
+    const stacks = useMemo(() => {
+        const stacks: StackText[][][] = [];
+        const stack: StackText[][] = [];
+        for (let i = 0; i <= at; i++) {
+            const evt = glob.events[i];
+            switch (evt.type) {
+                case 'stack-push':
+                    stack.push(evt.value);
+                    break;
+                case 'stack-replace':
+                    stack.pop();
+                    stack.push(evt.value);
+                    break;
+                case 'stack-pop':
+                    stack.pop();
+                    break;
+                case 'stack-break':
+                    stacks.push(stack.slice());
+                    break;
+            }
+        }
+        return stacks.length ? [stacks[stacks.length - 1]] : [];
+    }, [at]);
 
     const multis = useMemo(() => {
         const multis: Record<string, true> = {};
@@ -361,11 +375,54 @@ export const App = () => {
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
-                <Sidebar latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
+                <Sidebar stacks={stacks} latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
             </div>
             {/* <ScopeDebug scope={scope} /> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div> */}
+        </div>
+    );
+};
+
+const ShowText = ({ text, subst }: { text: StackText; subst: Subst }) => {
+    if (typeof text === 'string') return text;
+    switch (text.type) {
+        case 'hole':
+            return (
+                <span
+                    style={{
+                        display: 'inline-block',
+                        border: '1px solid #aaf',
+                        background: text.active ? `#aaf` : 'transparent',
+                        width: '1em',
+                        height: '1em',
+                    }}
+                />
+            );
+        case 'kwd':
+            return <span style={{ color: colors.con }}>{text.kwd}</span>;
+        case 'type':
+            return <RenderType t={typeApply(subst, text.typ)} />;
+    }
+};
+
+const ShowStacks = ({ stacks, subst }: { subst: Subst; stacks: StackText[][][] }) => {
+    return (
+        <div>
+            {stacks.map((stack, i) => (
+                <div key={i} style={{ marginBottom: 12 }}>
+                    {stack.map((item, i) => (
+                        <div>
+                            {interleave(
+                                item.map((t, i) => <ShowText subst={subst} text={t} key={i} />),
+                                (i) => (
+                                    <span key={`mid-${i}`}>&nbsp;</span>
+                                ),
+                            )}
+                        </div>
+                    ))}
+                </div>
+            ))}
         </div>
     );
 };
@@ -377,8 +434,10 @@ const Sidebar = ({
     types,
     nodes,
     latest,
+    stacks,
 }: {
     subst: Subst[];
+    stacks: StackText[][][];
     smap: Subst;
     scope: Tenv['scope'];
     types: Record<string, Type>;
@@ -394,7 +453,8 @@ const Sidebar = ({
     });
     return (
         <div>
-            <div style={{ display: 'grid', marginBottom: 16, gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
+            <ShowStacks subst={smap} stacks={stacks} />
+            <div style={{ display: 'grid', marginTop: 24, marginBottom: 16, gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
                 {Object.keys(scope)
                     .filter((k) => !env.scope[k])
                     .map((k) => (
