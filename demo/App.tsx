@@ -93,7 +93,7 @@ export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
 
 type Ctx = {
     nodes: Nodes;
-    higlight: string[];
+    highlight: string[];
     parsed: ParseResult<Stmt>;
     byLoc: Record<string, Type>;
     spans: Record<string, string[]>;
@@ -197,7 +197,7 @@ const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     const meta = ctx.parsed.ctx.meta[node.loc];
     let style: React.CSSProperties = styles[meta?.kind as 'kwd'];
-    if (ctx.higlight.includes(node.loc)) {
+    if (ctx.highlight.includes(node.loc)) {
         if (!style) style = {};
         style.backgroundColor = '#700';
     }
@@ -261,21 +261,19 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     }
 };
 
+type OneStack = { text: StackText[]; src: Src };
+
 export const App = () => {
     const [at, setAt] = useState(13);
 
     const stacks = useMemo(() => {
-        const stacks: StackText[][][] = [];
-        const stack: StackText[][] = [];
+        const stacks: OneStack[][] = [];
+        const stack: OneStack[] = [];
         for (let i = 0; i <= at; i++) {
             const evt = glob.events[i];
             switch (evt.type) {
                 case 'stack-push':
-                    stack.push(evt.value);
-                    break;
-                case 'stack-replace':
-                    stack.pop();
-                    stack.push(evt.value);
+                    stack.push({ text: evt.value, src: evt.src });
                     break;
                 case 'stack-pop':
                     stack.pop();
@@ -371,7 +369,7 @@ export const App = () => {
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div>
                     {cst.roots.map((root) => (
-                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ higlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc }} />
+                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ highlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc }} />
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
@@ -406,15 +404,32 @@ const ShowText = ({ text, subst }: { text: StackText; subst: Subst }) => {
     }
 };
 
-const ShowStacks = ({ stacks, subst }: { subst: Subst; stacks: StackText[][][] }) => {
+const Num = ({ n }: { n: number }) => (
+    <span
+        style={{
+            padding: '0px 6px',
+            backgroundColor: '#faa',
+            color: 'black',
+            fontSize: 12,
+            borderRadius: '50%',
+            marginRight: 8,
+            display: 'inline-block',
+        }}
+    >
+        {n}
+    </span>
+);
+
+const ShowStacks = ({ stacks, subst }: { subst: Subst; stacks: OneStack[][] }) => {
     return (
         <div>
             {stacks.map((stack, i) => (
                 <div key={i} style={{ marginBottom: 12 }}>
-                    {stack.map((item, i) => (
-                        <div>
+                    {stack.map((item, j) => (
+                        <div key={j}>
+                            <Num n={j + 1} />
                             {interleave(
-                                item.map((t, i) => <ShowText subst={subst} text={t} key={i} />),
+                                item.text.map((t, i) => <ShowText subst={subst} text={t} key={i} />),
                                 (i) => (
                                     <span key={`mid-${i}`}>&nbsp;</span>
                                 ),
@@ -437,7 +452,7 @@ const Sidebar = ({
     stacks,
 }: {
     subst: Subst[];
-    stacks: StackText[][][];
+    stacks: OneStack[][];
     smap: Subst;
     scope: Tenv['scope'];
     types: Record<string, Type>;

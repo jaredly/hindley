@@ -1,4 +1,14 @@
 
+Stack showing
+
+I think the bones are there?
+need to show (1) (2) (3) etc. in the code pane on the left...
+...and want to have a beat where you show the unify thing before it's applied.
+
+- [ ] have a text description of where the `unify` is coming from
+
+##
+
 iffff valueNull, what if I just make a variable for it?
 
 - [x] instead of tracking a /return/, just have a `return` in scope.
