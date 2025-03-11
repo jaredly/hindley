@@ -234,14 +234,14 @@ const stackReplace = (src: Src, ...value: StackText[]) => {
     globalState.events.push({ src, type: 'stack-push', value });
 };
 const stackPop = () => globalState.events.push({ type: 'stack-pop' });
-const stackBreak = () => globalState.events.push({ type: 'stack-break' });
+const stackBreak = (title: string) => globalState.events.push({ type: 'stack-break', title });
 
 export type Event =
     | { type: 'unify'; one: Type; two: Type; subst: Subst; src: Src; oneName: string; twoName: string; message?: string }
     | { type: 'scope'; scope: Tenv['scope'] }
     | { type: 'infer'; src: Src; value: Type }
     | { type: 'new-var'; name: string }
-    | { type: 'stack-break' }
+    | { type: 'stack-break'; title: string }
     | { type: 'stack-push'; value: StackValue; src: Src }
     | { type: 'stack-pop' };
 
@@ -409,10 +409,10 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
                 globalState.events.push({ type: 'infer', src: pat.src, value: pv });
                 const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
                 const valueType = inferExpr(self, init);
+                // stackReplace(src, typ(pv), ' -> ', typ(valueType));
+                // stackBreak();
                 unify(typeApply(globalState.subst, pv), valueType, stmt.src, `variable for '${pat.name}'`, `inferred type of value`);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
-                stackReplace(src, typ(pv), ' -> ', typ(typeApply(globalState.subst, pv)));
-                stackBreak();
                 stackPop();
                 // globalState.events.push({ type: 'stack-pop' });
                 // globalState.events.push({ type: 'infer', src: pat.src, value: valueType });
@@ -495,8 +495,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             if (!got) throw new Error(`variable not found in scope ${expr.name}`);
             if (got.vars.length) {
                 stackPush(expr.src, kwd(expr.name), ' -> ', '<', ...got.vars.map((name) => typ({ type: 'var', name })), '>', typ(got.body));
+            } else {
+                stackPush(expr.src, kwd(expr.name), ' -> ', typ(got.body));
             }
-            stackPush(expr.src, kwd(expr.name), ' -> ', typ(got.body));
             stackBreak();
             const inst = instantiate(got);
             if (got.vars.length) {

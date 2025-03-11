@@ -345,7 +345,9 @@ export const App = () => {
     // const stack = stacks.length ? stacks[at] : undefined;
     const stackSrc: Record<string, number> = {};
     stack?.forEach((item, i) => {
-        stackSrc[srcKey(item.src)] = i + 1;
+        if (!stackSrc[srcKey(item.src)]) {
+            stackSrc[srcKey(item.src)] = i + 1;
+        }
     });
 
     const multis = useMemo(() => {
