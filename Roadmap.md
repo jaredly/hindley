@@ -7,14 +7,14 @@ need to show (1) (2) (3) etc. in the code pane on the left...
 
 - [x] have a text description of where the `unify` is coming from
 - [x] need unify to be part of the stack
-- [ ] unify one & two need namessss
-- [ ] scope on the left
+- [x] unify one & two need namessss
+- [ ] scope on the right
 - [ ] when a substitution happens, highlight the thing
 - [ ] unify: have a stack-break for each substitution, so we can see each one applied.
 - [ ] also show available type variables?
 - [ ] figure out why we're getting duplicate entries like (sometype) -> (sometype)
 - [ ] could I actually animate the substitutions? that would be very cool
-- [ ] some unifies are unnecessary...
+- [ ] OK let's actually have the types inline for variable declarations.
 
 ##
 

@@ -395,15 +395,15 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
         case 'let': {
             const { pat, init, src } = stmt;
             stackPush(src, kwd('let'), ' ', hole(), ' = ', hole());
-            stackBreak();
+            stackBreak("'let' statement");
             if (pat.type === 'var') {
                 stackReplace(src, kwd('let'), ' ', hole(true), ' = ', hole());
                 const pv = newTypeVar({ type: 'pat-var', name: pat.name, src: pat.src });
                 stackPush(pat.src, pat.name, ' -> ', typ(pv));
-                stackBreak();
+                stackBreak(`create a type variable for the name '${pat.name}'`);
                 stackPop();
                 stackReplace(src, kwd('let'), ' ', typ(pv), ' = ', hole());
-                stackBreak();
+                stackBreak(`create a type variable for the name '${pat.name}'`);
                 stackReplace(src, kwd('let'), ' ', typ(pv), ' = ', hole(true));
                 // globalState.events.push({ type: 'stack-push', value: { type: 'let', pat: pv } });
                 globalState.events.push({ type: 'infer', src: pat.src, value: pv });
@@ -487,7 +487,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
         case 'prim':
             const t: Type = { type: 'con', name: expr.prim.type };
             stackPush(expr.src, kwd(expr.prim.value + ''), ' -> ', typ(t));
-            stackBreak();
+            stackBreak(`primitive constant`);
             stackPop();
             return t;
         case 'var':
@@ -498,12 +498,11 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             } else {
                 stackPush(expr.src, kwd(expr.name), ' -> ', typ(got.body));
             }
-            stackBreak();
+            stackBreak('variable lookup');
             const inst = instantiate(got);
             if (got.vars.length) {
-                console.log('doin a var', expr.name, got.vars);
                 stackReplace(expr.src, kwd(expr.name), ' -> ', typ(inst));
-                stackBreak();
+                stackBreak('create new variables for the type parameters');
             }
             stackPop();
             return inst;
@@ -526,7 +525,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             });
             let boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
             stackPush(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', hole());
-            stackBreak();
+            stackBreak('arrow function');
             stackReplace(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', hole(true));
 
             const bodyType = inferExpr(boundEnv, expr.body);
@@ -539,7 +538,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             unify(bodyType, typeApply(globalState.subst, returnVar), expr.src, `inferred body type`, `lambda return type`);
 
             stackReplace(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', typ(typeApply(globalState.subst, returnVar)));
-            stackBreak();
+            stackBreak('arrow function');
             stackPop();
             return tfns(
                 args.map((arg) => typeApply(globalState.subst, arg)),
@@ -556,13 +555,13 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             const src = expr.src;
 
             stackPush(src, hole(), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
-            stackBreak();
+            stackBreak('function call');
             stackReplace(src, hole(true), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
 
             let targetType = inferExpr(tenv, expr.target);
 
             stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
-            stackBreak();
+            stackBreak('function call');
 
             const argTenv = tenvApply(globalState.subst, tenv);
 
@@ -580,7 +579,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 args.push(got);
                 const mid2 = commas(args.map(typ).concat(holes.slice(i + 1)));
                 stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...mid2, ') -> ', typ(resultVar));
-                stackBreak();
+                stackBreak('argument #' + (i + 1));
             }
 
             // console.log(expr.target, targetType.value);
@@ -612,7 +611,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             const src = expr.src;
             // TODO: handle else
             stackPush(src, kwd('if'), '(', hole(), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));
-            stackBreak();
+            stackBreak('if conditional');
             stackReplace(src, kwd('if'), '(', hole(true), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));
             const cond = inferExpr(tenv, expr.cond);
             unify(cond, { type: 'con', name: 'bool' }, expr.cond.src, 'if condition', 'must be bool');
@@ -626,7 +625,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 '}',
                 ...(expr.no ? ['else {', hole(), ')'] : []),
             );
-            stackBreak();
+            stackBreak('if conditional');
 
             stackReplace(
                 src,
@@ -649,7 +648,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 '}',
                 ...(expr.no ? ['else {', hole(), ')'] : []),
             );
-            stackBreak();
+            stackBreak('if conditional');
 
             const two = expr.no ? inferExpr(tenv, expr.no) : undefined;
             const twov = two ? two : { type: 'con' as const, name: 'void' };

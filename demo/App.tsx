@@ -78,7 +78,6 @@ const glob = getGlobalState();
 let res;
 try {
     res = inferStmt(env, parsed.result);
-    glob.events.push({ type: 'stack-break' });
 } catch (err) {
     console.log('bad inference', err);
     res = null;
@@ -127,17 +126,18 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
         <span
             data-id={id}
             style={{
-                borderBottomWidth: multiline ? 0 : 3,
-                marginBottom: 1,
-                borderColor: color ?? 'transparent',
-                // borderRadius: 4,
-                borderStyle: 'solid',
-                // backgroundColor: 'rgba(255,0,0,0.01)',
+                // marginBottom: 1,
+                // borderBottomWidth: multiline ? 0 : 3,
+                // borderColor: color ?? 'transparent',
+                // borderStyle: 'solid',
+                //
                 display: !multiline ? 'inline-block' : 'inline',
+                // borderRadius: 4,
+                // backgroundColor: 'rgba(255,0,0,0.01)',
                 // alignItems: 'flex-start',
             }}
         >
-            {multiline ? (
+            {/* {multiline ? (
                 <span
                     style={{
                         display: 'inline-block',
@@ -147,7 +147,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                 >
                     {'('}
                 </span>
-            ) : null}
+            ) : null} */}
             <span
                 style={
                     multiline
@@ -161,8 +161,18 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                 {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
                 {num ? <Num n={num} /> : null}
                 {children}
+                {t ? (
+                    <span
+                        style={{
+                            // fontSize: '80%',
+                            color: '#666',
+                        }}
+                    >
+                        : <RenderType t={t} />
+                    </span>
+                ) : null}
             </span>
-            {multiline ? (
+            {/* {multiline ? (
                 <span
                     style={{
                         display: 'inline-block',
@@ -172,16 +182,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                 >
                     {')'}
                 </span>
-            ) : null}
-            {/* <span
-                style={{
-                    display: multiline ? 'inline' : 'block',
-                    fontSize: '80%',
-                    color: '#666',
-                }}
-            >
-                {t ? typeToString(t) : ''}
-            </span> */}
+            ) : null} */}
         </span>
     );
 };
@@ -262,6 +263,8 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     }
 };
 
+export type Frame = { stack: OneStack[]; title: string };
+
 export type OneStack =
     | { text: StackText[]; src: Src; type: 'line' }
     | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; oneName: string; twoName: string; message?: string };
@@ -292,7 +295,7 @@ export const App = () => {
         let smap: Subst = {};
         let scope: Tenv['scope'] = {};
 
-        const stacks: OneStack[][] = [];
+        const stacks: Frame[] = [];
         const stack: OneStack[] = [];
         top: for (let i = 0; i <= glob.events.length && at >= stacks.length; i++) {
             const evt = glob.events[i];
@@ -304,17 +307,17 @@ export const App = () => {
                     stack.pop();
                     break;
                 case 'stack-break':
-                    stacks.push(stack.slice());
+                    stacks.push({ stack: stack.slice(), title: evt.title });
                     break;
                 case 'unify':
                     const has = Object.keys(evt.subst).length;
                     if (has) {
                         stack.push(evt);
-                        stacks.push(stack.slice());
+                        stacks.push({ stack: stack.slice(), title: 'Unification result' });
                         stack.pop();
                         if (stacks.length > at) break top;
                         stack.push(evt);
-                        stacks.push(stack.slice());
+                        stacks.push({ stack: stack.slice(), title: 'Unification result' });
                         stack.pop();
                     }
                     break;
@@ -344,7 +347,7 @@ export const App = () => {
 
     // const stack = stacks.length ? stacks[at] : undefined;
     const stackSrc: Record<string, number> = {};
-    stack?.forEach((item, i) => {
+    stack?.stack.forEach((item, i) => {
         if (!stackSrc[srcKey(item.src)]) {
             stackSrc[srcKey(item.src)] = i + 1;
         }
@@ -441,7 +444,7 @@ const Sidebar = ({
     stack,
 }: {
     subst: Subst[];
-    stack?: OneStack[];
+    stack?: Frame;
     smap: Subst;
     scope: Tenv['scope'];
     types: Record<string, Type>;

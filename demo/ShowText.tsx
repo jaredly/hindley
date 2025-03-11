@@ -1,7 +1,7 @@
 import React from 'react';
 import { StackText, Subst, typeApply } from '../infer/algw/algw-s2-return';
 import { colors, RenderType } from './RenderType';
-import { OneStack, Num } from './App';
+import { OneStack, Num, Frame } from './App';
 import { ShowUnify } from './RenderEvent';
 
 export const ShowText = ({ text, subst }: { text: StackText; subst: Subst }) => {
@@ -39,12 +39,12 @@ export const ShowText = ({ text, subst }: { text: StackText; subst: Subst }) => 
     }
 };
 
-export const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: OneStack[] }) => {
+export const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: Frame }) => {
     if (!stack) return null;
     return (
         <div>
             <div style={{ marginBottom: 12 }}>
-                {stack.map((item, j) => {
+                {stack.stack.map((item, j) => {
                     if (item.type === 'unify') {
                         return (
                             <ShowUnify
@@ -67,6 +67,7 @@ export const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: OneStack[] 
                         </div>
                     );
                 })}
+                <div style={{ fontFamily: 'Lora', fontSize: '120%', marginTop: 12 }}>{stack.title}</div>
             </div>
         </div>
     );
