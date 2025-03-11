@@ -99,7 +99,8 @@ type Ctx = {
 };
 
 const styles = {
-    kwd: { color: 'green' },
+    decl: { color: '#c879df' },
+    kwd: { color: '#2852c7' },
     punct: { color: 'gray' },
     unparsed: { color: 'red' },
 };
@@ -243,7 +244,7 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
             }
             return (
                 <span style={style}>
-                    {opener[node.kind]}
+                    <span style={styles.punct}>{opener[node.kind]}</span>
                     {/* {node.forceMultiline ? <br /> : null} */}
                     {interleave(
                         node.children.map((id) => (
@@ -255,7 +256,7 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
                         (i) => (node.forceMultiline ? null : <span key={'mid-' + i}>{node.kind === 'curly' ? '; ' : ', '}</span>),
                     )}
                     {/* {node.forceMultiline ? <br /> : null} */}
-                    {closer[node.kind]}
+                    <span style={styles.punct}>{closer[node.kind]}</span>
                 </span>
             );
         case 'table':
@@ -324,11 +325,15 @@ export const App = () => {
             }
             if (evt.type === 'infer') {
                 if (evt.src.right) {
-                    byLoc[evt.src.left + ':' + evt.src.right] = evt.value;
+                    // byLoc[evt.src.left + ':' + evt.src.right] = evt.value;
                 } else {
-                    byLoc[evt.src.left] = evt.value;
+                    if (!evt.src.right && parsed.ctx.meta[evt.src.left]?.kind === 'decl') {
+                        byLoc[evt.src.left] = evt.value;
+                    }
                 }
-                types.push({ src: evt.src, type: evt.value });
+                if (!evt.src.right && parsed.ctx.meta[evt.src.left]?.kind === 'decl') {
+                    types.push({ src: evt.src, type: evt.value });
+                }
             }
             if (evt.type === 'unify') {
                 subst.push(evt.subst);

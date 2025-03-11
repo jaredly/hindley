@@ -1,6 +1,6 @@
 // import { js, TestParser } from '../keyboard/test-utils';
 import { Id, Loc, NodeID, RecNode, TextSpan } from './nodes';
-import { Ctx, list, match, or, Rule, ref, tx, seq, kwd, group, id, star, Src, number, text, table, opt } from './parse-dsl';
+import { Ctx, list, match, or, Rule, ref, tx, seq, kwd, group, id, star, Src, number, text, table, opt, meta } from './parse-dsl';
 // import { binops, Block, Expr, kwds, Stmt } from './js--types';
 import { mergeSrc, nodesSrc } from './ts-types';
 import { Config } from './lexer';
@@ -191,7 +191,7 @@ const rules = {
             prim: { type: 'bool', value: ctx.ref<Id<Loc>>('value').text === 'true' },
             src,
         })),
-        tx(group('id', id(null)), (ctx, src) => ({ type: 'var', name: ctx.ref<Id<Loc>>('id').text, src })),
+        tx(group('id', meta(id(null), 'decl')), (ctx, src) => ({ type: 'var', name: ctx.ref<Id<Loc>>('id').text, src })),
         tx(list('smooshed', seq(group('name', id(null)), list('round', group('args', star(ref('pat')))))), (ctx, src) => ({
             type: 'con',
             name: ctx.ref<Id<Loc>>('name').text,

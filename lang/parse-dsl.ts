@@ -43,6 +43,7 @@ export type Rule<T> =
     | { type: 'or'; opts: Rule<T>[] }
     | { type: 'tx'; inner: Rule<any>; f: (ctx: Ctx, src: Src) => T }
     | { type: 'kwd'; kwd: string; meta?: string }
+    | { type: 'meta'; inner: Rule<T>; meta: string }
     | { type: 'ref'; name: string; bind?: string }
     | { type: 'seq'; rules: Rule<any>[] }
     | { type: 'group'; name: string; inner: Rule<T> }
@@ -104,6 +105,8 @@ export const show = (matcher: Rule<any>): string => {
     switch (matcher.type) {
         case 'id':
             return matcher.kind ? `Id(${matcher.kind})` : `Id`;
+        case 'meta':
+            return `Meta(${show(matcher.inner)}, ${matcher.meta})`;
         case 'kwd':
             return `Kwd(${matcher.kwd})`;
         case 'seq':
@@ -160,6 +163,11 @@ export const match = <T>(rule: Rule<T>, ctx: Ctx, parent: MatchParent, at: numbe
 export const match_ = (rule: Rule<any>, ctx: Ctx, parent: MatchParent, at: number): undefined | null | Result<any> => {
     const node = parent.nodes[at];
     switch (rule.type) {
+        case 'meta': {
+            const inner = match(rule.inner, ctx, parent, at);
+            if (inner) ctx.meta[node.loc] = { kind: rule.meta };
+            return inner;
+        }
         case 'kwd':
             if (node?.type !== 'id' || node.text !== rule.kwd) return;
             ctx.meta[node.loc] = { kind: rule.meta ?? 'kwd' };
@@ -365,6 +373,7 @@ export const text = <T>(embed: Rule<T>): Rule<TextSpan<T>[]> => ({ type: 'text',
 // - List
 // - Table
 export const kwd = (kwd: string, meta?: string): Rule<unknown> => ({ type: 'kwd', kwd, meta });
+export const meta = (inner: Rule<unknown>, meta: string): Rule<unknown> => ({ type: 'meta', inner, meta });
 export const id = (kind?: string | null): Rule<unknown> => ({ type: 'id', kind });
 const int: Rule<number> = { type: 'number', just: 'int' };
 const float: Rule<number> = { type: 'number', just: 'float' };

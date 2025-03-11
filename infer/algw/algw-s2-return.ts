@@ -403,10 +403,10 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
                 stackBreak(`create a type variable for the name '${pat.name}'`);
                 stackPop();
                 stackReplace(src, kwd('let'), ' ', typ(pv), ' = ', hole());
+                globalState.events.push({ type: 'infer', src: pat.src, value: pv });
                 stackBreak(`create a type variable for the name '${pat.name}'`);
                 stackReplace(src, kwd('let'), ' ', typ(pv), ' = ', hole(true));
                 // globalState.events.push({ type: 'stack-push', value: { type: 'let', pat: pv } });
-                globalState.events.push({ type: 'infer', src: pat.src, value: pv });
                 const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
                 const valueType = inferExpr(self, init);
                 // stackReplace(src, typ(pv), ' -> ', typ(valueType));
