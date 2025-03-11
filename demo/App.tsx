@@ -87,6 +87,7 @@ type Ctx = {
 
 const styles = {
     decl: { color: '#c879df' },
+    ref: { color: 'rgb(255 90 68)' },
     kwd: { color: '#2852c7' },
     punct: { color: 'gray' },
     unparsed: { color: 'red' },
@@ -456,7 +457,9 @@ export const Num = ({ n }: { n: number }) => (
             padding: '0px 6px',
             backgroundColor: '#faa',
             color: 'black',
-            fontSize: 12,
+            fontFamily: 'Lora',
+            fontWeight: 'bold',
+            // fontSize: 12,
             borderRadius: '50%',
             marginRight: 8,
             // display: 'inline-block',

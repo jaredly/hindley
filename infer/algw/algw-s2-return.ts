@@ -508,6 +508,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             stackPop();
             return inst;
         case 'str':
+            stackPush(expr.src, kwd(JSON.stringify(expr.value)), ' -> ', typ({ type: 'con', name: 'string' }));
+            stackBreak(`primitive constant`);
+            stackPop();
             return { type: 'con', name: 'string' };
         case 'lambda': {
             if (!expr.args.length) {

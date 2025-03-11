@@ -87,10 +87,17 @@ const parseSmoosh = (base: Expr, suffixes: Suffix[], src: Src): Expr => {
 
 type BareLet = { type: 'bare-let'; pat: Pat; init: Expr; src: Src };
 
+const textString = (spans: TextSpan<string>[]) => {
+    for (let span of spans) {
+        if (span.type === 'text') return span.text;
+    }
+    return '';
+};
+
 const exprs: Record<string, Rule<Expr>> = {
     'expr num': tx(group('value', number), (ctx, src) => ({ type: 'prim', prim: { type: 'int', value: ctx.ref<number>('value') }, src })),
-    'expr var': tx(group('id', id(null)), (ctx, src) => ({ type: 'var', name: ctx.ref<Id<Loc>>('id').text, src })),
-    'expr text': tx(group('spans', text(ref('expr'))), (ctx, src) => ({ type: 'str', src, value: 'STRING' })),
+    'expr var': tx(group('id', meta(id(null), 'ref')), (ctx, src) => ({ type: 'var', name: ctx.ref<Id<Loc>>('id').text, src })),
+    'expr text': tx(group('spans', text(ref('expr'))), (ctx, src) => ({ type: 'str', src, value: textString(ctx.ref<TextSpan<string>[]>('spans')) })),
     // ({ type:'str', spans: ctx.ref<TextSpan<Expr>[]>('spans'), src })),
     'expr tuple': tx<Expr>(list('round', group('items', star(ref('expr')))), (ctx, src) => {
         const items = ctx.ref<Expr[]>('items');
