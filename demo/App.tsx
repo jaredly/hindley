@@ -21,8 +21,10 @@ import {
     typeToString,
 } from '../infer/algw/algw-s2-return';
 import { Src } from '../lang/parse-dsl';
-import { RenderEvent, ShowUnify } from './RenderEvent';
-import { colors, RenderType } from './RenderType';
+import { RenderEvent } from './RenderEvent';
+import { RenderType } from './RenderType';
+import { interleave } from './interleave';
+import { ShowStacks } from './ShowText';
 
 const env = builtinEnv();
 
@@ -42,12 +44,23 @@ const env = builtinEnv();
 // return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
 // };quicksort}`;
 
+// const text = `{
+// let fib = (n) => {
+// if (n <= 1) {return 1}
+// return fib(n - 1) + fib(n - 2)
+// }
+// fib
+// }`;
+
 const text = `{
-let fib = (n) => {
-if (n <= 1) {return 1}
-return fib(n - 1) + fib(n - 2)
+let example = (value, f) => {
+    let things = []
+    if (value > 10) {
+        things.push(f(value))
+    }
+    things
 }
-fib
+    example
 }`;
 
 // const text = `(x) => {let (a, _) = x; a(2)}`;
@@ -75,17 +88,6 @@ export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
 export const closer = { round: ')', square: ']', curly: '}', angle: '>' };
 export const braceColor = 'rgb(100, 200, 200)';
 export const braceColorHl = 'rgb(0, 150, 150)';
-
-export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
-    const res: T[] = [];
-    items.forEach((item, i) => {
-        if (i > 0) {
-            res.push(sep(i - 1));
-        }
-        res.push(item);
-    });
-    return res;
-};
 
 type Ctx = {
     nodes: Nodes;
@@ -260,10 +262,12 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     }
 };
 
-type OneStack = { text: StackText[]; src: Src; type: 'line' } | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; message: string };
+export type OneStack =
+    | { text: StackText[]; src: Src; type: 'line' }
+    | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; oneName: string; twoName: string; message?: string };
 
 export const App = () => {
-    const [at, setAt] = useState(12);
+    const [at, setAt] = useState(20);
 
     // const stack = useMemo(() => {
     // }, [at]);
@@ -273,6 +277,9 @@ export const App = () => {
         glob.events.forEach((e) => {
             if (e.type === 'stack-break') {
                 num++;
+            }
+            if (e.type === 'unify' && Object.keys(e.subst).length) {
+                num += 2;
             }
         });
         return num;
@@ -300,13 +307,16 @@ export const App = () => {
                     stacks.push(stack.slice());
                     break;
                 case 'unify':
-                    stack.push({ message: evt.message, subst: evt.subst, src: evt.src, type: 'unify', one: evt.one, two: evt.two });
-                    stacks.push(stack.slice());
-                    stack.pop();
-                    if (stacks.length > at) break top;
-                    stack.push({ message: evt.message, subst: evt.subst, src: evt.src, type: 'unify', one: evt.one, two: evt.two });
-                    stacks.push(stack.slice());
-                    stack.pop();
+                    const has = Object.keys(evt.subst).length;
+                    if (has) {
+                        stack.push(evt);
+                        stacks.push(stack.slice());
+                        stack.pop();
+                        if (stacks.length > at) break top;
+                        stack.push(evt);
+                        stacks.push(stack.slice());
+                        stack.pop();
+                    }
                     break;
             }
             if (evt.type === 'infer') {
@@ -382,7 +392,7 @@ export const App = () => {
             </div>
             <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
             <div style={{ display: 'flex', flexDirection: 'row' }}>
-                <div>
+                <div style={{ flex: 1 }}>
                     {cst.roots.map((root) => (
                         <RenderNode
                             key={root}
@@ -403,29 +413,7 @@ export const App = () => {
 
 const srcKey = (src: Src) => (src.right ? `${src.left}:${src.right}` : src.left);
 
-const ShowText = ({ text, subst }: { text: StackText; subst: Subst }) => {
-    if (typeof text === 'string') return text;
-    switch (text.type) {
-        case 'hole':
-            return (
-                <span
-                    style={{
-                        display: 'inline-block',
-                        border: '1px solid #aaf',
-                        background: text.active ? `#aaf` : 'transparent',
-                        width: '1em',
-                        height: '1em',
-                    }}
-                />
-            );
-        case 'kwd':
-            return <span style={{ color: colors.con }}>{text.kwd}</span>;
-        case 'type':
-            return <RenderType t={typeApply(subst, text.typ)} />;
-    }
-};
-
-const Num = ({ n }: { n: number }) => (
+export const Num = ({ n }: { n: number }) => (
     <span
         style={{
             padding: '0px 6px',
@@ -440,32 +428,6 @@ const Num = ({ n }: { n: number }) => (
         {n}
     </span>
 );
-
-const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: OneStack[] }) => {
-    if (!stack) return null;
-    return (
-        <div>
-            <div style={{ marginBottom: 12 }}>
-                {stack.map((item, j) => {
-                    if (item.type === 'unify') {
-                        return <ShowUnify key={j} message={item.message} one={item.one} two={item.two} subst={item.subst} />;
-                    }
-                    return (
-                        <div key={j}>
-                            <Num n={j + 1} />
-                            {interleave(
-                                item.text.map((t, i) => <ShowText subst={subst} text={t} key={i} />),
-                                (i) => (
-                                    <span key={`mid-${i}`}>&nbsp;</span>
-                                ),
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
 
 const Sidebar = ({
     subst,
@@ -492,7 +454,7 @@ const Sidebar = ({
         });
     });
     return (
-        <div>
+        <div style={{ flex: 1 }}>
             <ShowStacks subst={smap} stack={stack} />
             <div style={{ display: 'grid', marginTop: 24, marginBottom: 16, gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
                 {Object.keys(scope)
@@ -507,7 +469,7 @@ const Sidebar = ({
                         </div>
                     ))}
             </div>
-            {latest ? <RenderEvent event={latest} /> : 'NOEV'}
+            {/* {latest ? <RenderEvent event={latest} /> : 'NOEV'} */}
             <pre>{JSON.stringify(variables, null, 2)}</pre>
         </div>
     );

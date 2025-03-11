@@ -1,6 +1,6 @@
 import React from 'react';
 import { Type } from '../infer/algw/algw-s2-return';
-import { interleave } from './App';
+import { interleave } from './interleave';
 
 export const colors = {
     punct: '#555',

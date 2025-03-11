@@ -4,21 +4,54 @@ import { colors, RenderType } from './RenderType';
 
 const accent = '#aaf';
 
-export const ShowUnify = ({ one, two, subst, message }: { one: Type; two: Type; subst: Subst; message: string }) => {
+export const ShowUnify = ({
+    one,
+    two,
+    oneName,
+    twoName,
+    subst,
+    message,
+}: {
+    one: Type;
+    two: Type;
+    subst: Subst;
+    oneName: string;
+    twoName: string;
+    message?: string;
+}) => {
     return (
-        <div style={{ border: `1px solid ${accent}`, textAlign: 'center' }}>
-            {message}
-            <div style={{ backgroundColor: accent, color: 'black' }}>unify</div>
-            <div>
+        <div style={{ border: `1px solid ${accent}`, textAlign: 'center', display: 'inline-grid', gridTemplateColumns: '1fr 1fr', columnGap: 8 }}>
+            <div style={{ minWidth: 0, gridColumn: '1/3' }}>{message}</div>
+            <div style={{ backgroundColor: accent, color: 'black', gridColumn: '1/3', marginBottom: 8, fontFamily: 'Lora', fontWeight: 'bold' }}>
+                unify
+            </div>
+            {/* <div style={{ display: 'contents' }}> */}
+            <span style={{ textAlign: 'right', marginLeft: 8, fontFamily: 'Lora', fontStyle: 'italic' }}>{oneName}</span>
+            <div style={{ textAlign: 'left' }}>
                 <RenderType t={one} />
             </div>
-            <div style={{ backgroundColor: accent, color: 'black' }}>with</div>
-            <div>
+            {/* </div> */}
+            <div style={{ backgroundColor: accent, color: 'black', gridColumn: '1/3', marginBlock: 8, fontFamily: 'Lora', fontWeight: 'bold' }}>
+                with
+            </div>
+            {/* <div> */}
+            <span style={{ textAlign: 'right', marginLeft: 8, fontFamily: 'Lora', fontStyle: 'italic' }}>{twoName}</span>
+            <div style={{ textAlign: 'left' }}>
                 <RenderType t={two} />
             </div>
-            <div style={{ backgroundColor: accent, color: 'black' }}>substitutions:</div>
-            <div style={{ height: 2, backgroundColor: accent }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr max-content max-content max-content 1fr', columnGap: 8 }}>
+            {/* </div> */}
+            <div style={{ backgroundColor: accent, color: 'black', gridColumn: '1/3', marginBlock: 8, fontFamily: 'Lora', fontWeight: 'bold' }}>
+                substitutions:
+            </div>
+            <div
+                style={{
+                    display: 'grid',
+                    gridColumn: '1/3',
+                    gridTemplateColumns: '1fr max-content max-content max-content 1fr',
+                    columnGap: 8,
+                    paddingBottom: 8,
+                }}
+            >
                 {Object.entries(subst).map(([key, type]) => (
                     <div key={key} style={{ display: 'contents' }}>
                         <div />
@@ -50,7 +83,14 @@ export const RenderEvent = ({ event }: { event: Event }) => {
             );
         case 'unify':
             return (
-                <ShowUnify message={event.message} one={event.one} two={event.two} subst={event.subst} />
+                <ShowUnify
+                    message={event.message}
+                    oneName={event.oneName}
+                    twoName={event.twoName}
+                    one={event.one}
+                    two={event.two}
+                    subst={event.subst}
+                />
                 // <div>
                 //     <div>
                 //         <RenderType t={event.one} />
