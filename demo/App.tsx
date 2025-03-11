@@ -94,6 +94,7 @@ export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
 type Ctx = {
     nodes: Nodes;
     highlight: string[];
+    stackSrc: Record<string, number>;
     parsed: ParseResult<Stmt>;
     byLoc: Record<string, Type>;
     spans: Record<string, string[]>;
@@ -123,6 +124,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
     const t = ctx.byLoc[id];
     const freeVbls = t ? typeFree(t) : [];
     const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
+    const num = ctx.stackSrc[id];
     return (
         <span
             data-id={id}
@@ -159,6 +161,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                           }
                 }
             >
+                {num ? <Num n={num} /> : null}
                 {children}
             </span>
             {multiline ? (
@@ -286,6 +289,12 @@ export const App = () => {
         return stacks.length ? [stacks[stacks.length - 1]] : [];
     }, [at]);
 
+    const stack = stacks.length ? stacks[0] : undefined;
+    const stackSrc: Record<string, number> = {};
+    stack?.forEach((item, i) => {
+        stackSrc[srcKey(item.src)] = i + 1;
+    });
+
     const multis = useMemo(() => {
         const multis: Record<string, true> = {};
         cst.roots.forEach((root) =>
@@ -369,11 +378,15 @@ export const App = () => {
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div>
                     {cst.roots.map((root) => (
-                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ highlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc }} />
+                        <RenderNode
+                            key={root}
+                            node={cst.nodes[root]}
+                            ctx={{ stackSrc, highlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc }}
+                        />
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
-                <Sidebar stacks={stacks} latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
+                <Sidebar stack={stack} latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
             </div>
             {/* <ScopeDebug scope={scope} /> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
@@ -381,6 +394,8 @@ export const App = () => {
         </div>
     );
 };
+
+const srcKey = (src: Src) => (src.right ? `${src.left}:${src.right}` : src.left);
 
 const ShowText = ({ text, subst }: { text: StackText; subst: Subst }) => {
     if (typeof text === 'string') return text;
@@ -413,31 +428,30 @@ const Num = ({ n }: { n: number }) => (
             fontSize: 12,
             borderRadius: '50%',
             marginRight: 8,
-            display: 'inline-block',
+            // display: 'inline-block',
         }}
     >
         {n}
     </span>
 );
 
-const ShowStacks = ({ stacks, subst }: { subst: Subst; stacks: OneStack[][] }) => {
+const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: OneStack[] }) => {
+    if (!stack) return null;
     return (
         <div>
-            {stacks.map((stack, i) => (
-                <div key={i} style={{ marginBottom: 12 }}>
-                    {stack.map((item, j) => (
-                        <div key={j}>
-                            <Num n={j + 1} />
-                            {interleave(
-                                item.text.map((t, i) => <ShowText subst={subst} text={t} key={i} />),
-                                (i) => (
-                                    <span key={`mid-${i}`}>&nbsp;</span>
-                                ),
-                            )}
-                        </div>
-                    ))}
-                </div>
-            ))}
+            <div style={{ marginBottom: 12 }}>
+                {stack.map((item, j) => (
+                    <div key={j}>
+                        <Num n={j + 1} />
+                        {interleave(
+                            item.text.map((t, i) => <ShowText subst={subst} text={t} key={i} />),
+                            (i) => (
+                                <span key={`mid-${i}`}>&nbsp;</span>
+                            ),
+                        )}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
@@ -449,10 +463,10 @@ const Sidebar = ({
     types,
     nodes,
     latest,
-    stacks,
+    stack,
 }: {
     subst: Subst[];
-    stacks: OneStack[][];
+    stack?: OneStack[];
     smap: Subst;
     scope: Tenv['scope'];
     types: Record<string, Type>;
@@ -468,7 +482,7 @@ const Sidebar = ({
     });
     return (
         <div>
-            <ShowStacks subst={smap} stacks={stacks} />
+            <ShowStacks subst={smap} stack={stack} />
             <div style={{ display: 'grid', marginTop: 24, marginBottom: 16, gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
                 {Object.keys(scope)
                     .filter((k) => !env.scope[k])
