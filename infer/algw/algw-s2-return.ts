@@ -428,6 +428,7 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
             unify(typeApply(globalState.subst, type), valueType, stmt.src, `pattern type`, `inferred type of value`);
             scope = scopeApply(globalState.subst, scope);
             // globalState.events.push({ type: 'stack-pop' });
+            stackPop();
             return { scope: scope, value: { type: 'con', name: 'void' } };
         }
         case 'expr':
@@ -717,16 +718,35 @@ const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
             return [newTypeVar({ type: 'pat-any', src: pat.src }), {}];
         case 'var': {
             const v = newTypeVar({ type: 'pat-var', name: pat.name, src: pat.src });
+            globalState.events.push({ type: 'infer', src: pat.src, value: v });
+            stackPush(pat.src, kwd(pat.name), ' -> ', typ(v));
+            stackBreak(`Create type variable for declaration '${pat.name}'`);
+            stackPop();
             return [v, { [pat.name]: { vars: [], body: v } }];
         }
         case 'con': {
             let [cargs, cres] = instantiateTcon(tenv, pat.name);
-            const subPatterns = pat.args.map((arg) => inferPattern(tenv, arg));
-            const argTypes = subPatterns.map((s) => s[0]);
-            const scopes = subPatterns.map((s) => s[1]);
-            argTypes.forEach((arg, i) => unify(arg, cargs[i], pat.src, `pattern type`, `type constructor arg ${i + 1}`));
+
+            if (cargs.length !== pat.args.length) throw new Error(`wrong number of arguments to type constructor ${pat.name}`);
+
+            const scope: Tenv['scope'] = {};
+
+            stackPush(pat.src, kwd(pat.name), ' -> ', typ({ type: 'fn', args: cargs, result: cres }));
+            stackBreak('Type constructor lookup');
+
+            for (let i = 0; i < pat.args.length; i++) {
+                let sub = inferPattern(tenv, pat.args[i]);
+                unify(cargs[i], sub[0], pat.src, `pattern type`, `type constructor arg ${i + 1}`);
+                Object.assign(scope, sub[1]);
+            }
+
+            // const subPatterns = pat.args.map((arg) => inferPattern(tenv, arg));
+            // const argTypes = subPatterns.map((s) => s[0]);
+            // const scopes = subPatterns.map((s) => s[1]);
+            // argTypes.forEach((arg, i) => unify(cargs[i], arg, pat.src, `pattern type`, `type constructor arg ${i + 1}`));
             cres = typeApply(globalState.subst, cres);
-            const scope = scopes.reduce((a, b) => ({ ...a, ...b }));
+            // const scope = scopes.reduce((a, b) => ({ ...a, ...b }));
+            stackPop();
             return [cres, scope];
         }
 

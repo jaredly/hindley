@@ -16,6 +16,8 @@ need to show (1) (2) (3) etc. in the code pane on the left...
 - [ ] could I actually animate the substitutions? that would be very cool
 - [ ] OK let's actually have the types inline for variable declarations.
 
+I think maybe I want ... smaller examples?
+
 ##
 
 iffff valueNull, what if I just make a variable for it?

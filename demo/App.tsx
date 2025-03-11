@@ -28,6 +28,11 @@ import { ShowStacks } from './ShowText';
 
 const env = builtinEnv();
 
+const examples = {
+    One: `let f = (arg) => {let (one, two) = arg; one + 2}`,
+    Two: '{let names = [];names.push("Kai")}',
+};
+
 // const text = `{\nlet quicksort = (arr) => {
 // if (arr.length <= 1) {
 // return arr}
@@ -52,36 +57,17 @@ const env = builtinEnv();
 // fib
 // }`;
 
-const text = `{
-let example = (value, f) => {
-    let things = []
-    if (value > 10) {
-        things.push(f(value))
-    }
-    things
-}
-    example
-}`;
-
+// const text = `{
+// let example = (value, f) => {
+//     let things = []
+//     if (value > 10) {
+//         things.push(f(value))
+//     }
+//     things
+// }
+//     example
+// }`;
 // const text = `(x) => {let (a, _) = x; a(2)}`;
-const cst = lex(js, text);
-// console.log(JSON.stringify(cst, null, 2));
-const node = fromMap(cst.roots[0], cst.nodes, (idx) => idx);
-// console.log(JSON.stringify(node, null, 2));
-const parsed = parser.parse(node);
-if (!parsed.result) throw new Error(`not parsed ${text}`);
-// console.log(parsed.result);
-resetState();
-
-const glob = getGlobalState();
-
-let res;
-try {
-    res = inferStmt(env, parsed.result);
-} catch (err) {
-    console.log('bad inference', err);
-    res = null;
-}
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
 export const closer = { round: ')', square: ']', curly: '}', angle: '>' };
@@ -271,7 +257,47 @@ export type OneStack =
     | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; oneName: string; twoName: string; message?: string };
 
 export const App = () => {
-    const [at, setAt] = useState(20);
+    const [selected, setSelected] = useState('One' as keyof typeof examples);
+
+    return (
+        <div>
+            <select onChange={(evt) => setSelected(evt.target.value as keyof typeof examples)} value={selected}>
+                {Object.keys(examples).map((key) => (
+                    <option key={key} value={key}>
+                        {key}
+                    </option>
+                ))}
+            </select>
+            <Example key={selected} text={examples[selected]} />
+        </div>
+    );
+};
+
+export const Example = ({ text }: { text: string }) => {
+    const { glob, res, cst, node, parsed } = useMemo(() => {
+        const cst = lex(js, text);
+        // console.log(JSON.stringify(cst, null, 2));
+        const node = fromMap(cst.roots[0], cst.nodes, (idx) => idx);
+        // console.log(JSON.stringify(node, null, 2));
+        const parsed = parser.parse(node);
+        if (!parsed.result) throw new Error(`not parsed ${text}`);
+        // console.log(parsed.result);
+        resetState();
+
+        const glob = getGlobalState();
+
+        let res;
+        try {
+            res = inferStmt(env, parsed.result);
+        } catch (err) {
+            console.log('bad inference', err);
+            res = null;
+        }
+
+        return { glob, res, cst, node, parsed };
+    }, [text]);
+
+    const [at, setAt] = useState(0);
 
     // const stack = useMemo(() => {
     // }, [at]);
@@ -578,7 +604,7 @@ const partition = (ctx: Ctx, children: string[]) => {
     }
     if (stack.length !== 1) {
         console.log(stack);
-        throw new Error('didnt clen up all stacks');
+        console.error('didnt clen up all stacks');
     }
     return stack[0];
 };
