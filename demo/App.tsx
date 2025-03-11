@@ -21,7 +21,7 @@ import {
     typeToString,
 } from '../infer/algw/algw-s2-return';
 import { Src } from '../lang/parse-dsl';
-import { RenderEvent } from './RenderEvent';
+import { RenderEvent, ShowUnify } from './RenderEvent';
 import { colors, RenderType } from './RenderType';
 
 const env = builtinEnv();
@@ -60,20 +60,16 @@ if (!parsed.result) throw new Error(`not parsed ${text}`);
 // console.log(parsed.result);
 resetState();
 
-console.log(parsed);
-console.log(node);
+const glob = getGlobalState();
 
 let res;
 try {
     res = inferStmt(env, parsed.result);
+    glob.events.push({ type: 'stack-break' });
 } catch (err) {
     console.log('bad inference', err);
     res = null;
 }
-
-const glob = getGlobalState();
-
-console.log('res', res);
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
 export const closer = { round: ')', square: ']', curly: '}', angle: '>' };
@@ -264,10 +260,10 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     }
 };
 
-type OneStack = { text: StackText[]; src: Src };
+type OneStack = { text: StackText[]; src: Src; type: 'line' } | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; message: string };
 
 export const App = () => {
-    const [at, setAt] = useState(0);
+    const [at, setAt] = useState(12);
 
     // const stack = useMemo(() => {
     // }, [at]);
@@ -291,11 +287,11 @@ export const App = () => {
 
         const stacks: OneStack[][] = [];
         const stack: OneStack[] = [];
-        for (let i = 0; i <= glob.events.length && at >= stacks.length; i++) {
+        top: for (let i = 0; i <= glob.events.length && at >= stacks.length; i++) {
             const evt = glob.events[i];
             switch (evt.type) {
                 case 'stack-push':
-                    stack.push({ text: evt.value, src: evt.src });
+                    stack.push({ text: evt.value, src: evt.src, type: 'line' });
                     break;
                 case 'stack-pop':
                     stack.pop();
@@ -303,16 +299,18 @@ export const App = () => {
                 case 'stack-break':
                     stacks.push(stack.slice());
                     break;
+                case 'unify':
+                    stack.push({ message: evt.message, subst: evt.subst, src: evt.src, type: 'unify', one: evt.one, two: evt.two });
+                    stacks.push(stack.slice());
+                    stack.pop();
+                    if (stacks.length > at) break top;
+                    stack.push({ message: evt.message, subst: evt.subst, src: evt.src, type: 'unify', one: evt.one, two: evt.two });
+                    stacks.push(stack.slice());
+                    stack.pop();
+                    break;
             }
-            // }
-            // // return stacks[at]; //.length ? [stacks[stacks.length - 1]] : [];
-
-            // for (let i = 0; i <= at; i++) {
-            // const evt = glob.events[i];
             if (evt.type === 'infer') {
                 if (evt.src.right) {
-                    // if (!spans[evt.src.left]) spans[evt.src.left] = [];
-                    // if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
                     byLoc[evt.src.left + ':' + evt.src.right] = evt.value;
                 } else {
                     byLoc[evt.src.left] = evt.value;
@@ -323,19 +321,11 @@ export const App = () => {
                 subst.push(evt.subst);
                 smap = composeSubst(evt.subst, smap);
             }
-            // if (evt.type === 'subst') {
-            //     subst.push({ name: evt.name, type: evt.value });
-            //     Object.keys(smap).forEach((k) => (smap[k] = typeApply({ [evt.name]: evt.value }, smap[k])));
-            //     smap[evt.name] = evt.value;
-            // }
             if (evt.type === 'scope') {
                 scope = evt.scope;
             }
         }
 
-        // subst.forEach((s) => {
-        //     s.type = typeApply(smap, s.type);
-        // });
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
@@ -347,7 +337,6 @@ export const App = () => {
     stack?.forEach((item, i) => {
         stackSrc[srcKey(item.src)] = i + 1;
     });
-    console.log(stackSrc);
 
     const multis = useMemo(() => {
         const multis: Record<string, true> = {};
@@ -457,17 +446,22 @@ const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: OneStack[] }) => {
     return (
         <div>
             <div style={{ marginBottom: 12 }}>
-                {stack.map((item, j) => (
-                    <div key={j}>
-                        <Num n={j + 1} />
-                        {interleave(
-                            item.text.map((t, i) => <ShowText subst={subst} text={t} key={i} />),
-                            (i) => (
-                                <span key={`mid-${i}`}>&nbsp;</span>
-                            ),
-                        )}
-                    </div>
-                ))}
+                {stack.map((item, j) => {
+                    if (item.type === 'unify') {
+                        return <ShowUnify key={j} message={item.message} one={item.one} two={item.two} subst={item.subst} />;
+                    }
+                    return (
+                        <div key={j}>
+                            <Num n={j + 1} />
+                            {interleave(
+                                item.text.map((t, i) => <ShowText subst={subst} text={t} key={i} />),
+                                (i) => (
+                                    <span key={`mid-${i}`}>&nbsp;</span>
+                                ),
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

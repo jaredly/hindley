@@ -236,7 +236,7 @@ const stackPop = () => globalState.events.push({ type: 'stack-pop' });
 const stackBreak = () => globalState.events.push({ type: 'stack-break' });
 
 export type Event =
-    | { type: 'unify'; one: Type; two: Type; subst: Subst }
+    | { type: 'unify'; one: Type; two: Type; subst: Subst; src: Src; message: string }
     | { type: 'scope'; scope: Tenv['scope'] }
     | { type: 'infer'; src: Src; value: Type }
     | { type: 'new-var'; name: string }
@@ -308,11 +308,11 @@ export const varBind = (name: string, type: Type) => {
     return { [name]: type };
 };
 
-export const unify = (one: Type, two: Type) => {
+export const unify = (one: Type, two: Type, src: Src, message: string) => {
     one = typeApply(globalState.subst, one);
     two = typeApply(globalState.subst, two);
     const subst = unifyInner(one, two);
-    globalState.events.push({ type: 'unify', one, two, subst });
+    globalState.events.push({ type: 'unify', one, two, subst, src, message });
     globalState.subst = composeSubst(subst, globalState.subst);
 };
 
@@ -384,11 +384,11 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
                 throw new Error(`cant return, we are not in a lambda`);
             }
             if (!stmt.value) {
-                unify(tenv.scope['return'].body, { type: 'con', name: 'void' });
+                unify(tenv.scope['return'].body, { type: 'con', name: 'void' }, stmt.src, 'empty return');
                 return { value };
             }
             const inner = inferExpr(tenv, stmt.value);
-            unify(tenv.scope['return'].body, inner);
+            unify(tenv.scope['return'].body, inner, stmt.src, 'return stmt');
             return { value };
         }
         case 'let': {
@@ -408,7 +408,7 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
                 globalState.events.push({ type: 'infer', src: pat.src, value: pv });
                 const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
                 const valueType = inferExpr(self, init);
-                unify(typeApply(globalState.subst, pv), valueType);
+                unify(typeApply(globalState.subst, pv), valueType, stmt.src, `let-bound ${pat.name} with inferred type of value`);
                 const appliedEnv = tenvApply(globalState.subst, tenv);
                 stackReplace(src, typ(pv), '->', typ(typeApply(globalState.subst, pv)));
                 stackBreak();
@@ -424,7 +424,7 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
             let [type, scope] = inferPattern(tenv, pat);
             // globalState.events.push({ type: 'stack-push', value: { type: 'let', pat: type } });
             const valueType = inferExpr(tenvWithScope(tenv, scope), init);
-            unify(typeApply(globalState.subst, type), valueType);
+            unify(typeApply(globalState.subst, type), valueType, stmt.src, `pattern type with inferred value`);
             scope = scopeApply(globalState.subst, scope);
             // globalState.events.push({ type: 'stack-pop' });
             return { scope: scope, value: { type: 'con', name: 'void' } };
@@ -437,7 +437,7 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
             const letter = inferStmt(tenv, stmt.init);
             const bound = letter.scope ? tenvWithScope(tenvApply(globalState.subst, tenv), letter.scope) : tenv;
             const upter = inferExpr(bound, stmt.cond);
-            unify(upter, { type: 'con', name: 'bool' });
+            unify(upter, { type: 'con', name: 'bool' }, stmt.src, 'condition of for loop must be bool');
             const okk = inferExpr(bound, stmt.update);
             const body = inferExpr(bound, stmt.body);
 
@@ -517,9 +517,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 globalState.events.push({ type: 'infer', src: pat.src, value: argType });
             });
             let boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
-            stackPush(src, '(', ...args.map(typ), ') =>', hole());
+            stackPush(src, '(', ...args.map(typ), ')', typ(returnVar), ' =>', hole());
             stackBreak();
-            stackReplace(src, '(', ...args.map(typ), ') =>', hole(true));
+            stackReplace(src, '(', ...args.map(typ), ')', typ(returnVar), ' =>', hole(true));
 
             const bodyType = inferExpr(boundEnv, expr.body);
 
@@ -528,9 +528,9 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             // we encountered.
             // IF `returnVar` has no substs, or IF bodyType is a
             // substless vbl, we can do this ~quietly.
-            unify(bodyType, typeApply(globalState.subst, returnVar));
+            unify(bodyType, typeApply(globalState.subst, returnVar), expr.src, `inferred body type with type of early returns`);
 
-            stackReplace(src, '(', ...args.map(typ), ') =>', typ(typeApply(globalState.subst, returnVar)));
+            stackReplace(src, '(', ...args.map(typ), ')', typ(returnVar), ' =>', typ(typeApply(globalState.subst, returnVar)));
             stackBreak();
             stackPop();
             return tfns(
@@ -547,13 +547,13 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
             const src = expr.src;
 
-            stackPush(src, hole(), '(', ...expr.args.map(() => hole()), ')');
+            stackPush(src, hole(), '(', ...expr.args.map(() => hole()), ') ->', typ(resultVar));
             stackBreak();
-            stackReplace(src, hole(true), '(', ...expr.args.map(() => hole()), ')');
+            stackReplace(src, hole(true), '(', ...expr.args.map(() => hole()), ') ->', typ(resultVar));
 
             let targetType = inferExpr(tenv, expr.target);
 
-            stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...expr.args.map(() => hole()), ')');
+            stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...expr.args.map(() => hole()), ') ->', typ(resultVar));
             stackBreak();
 
             const argTenv = tenvApply(globalState.subst, tenv);
@@ -566,18 +566,23 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             let args: Type[] = [];
             for (let i = 0; i < expr.args.length; i++) {
                 const mid = args.map(typ).concat([hole(true), ...holes.slice(i + 1)]);
-                stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...mid, ')');
+                stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...mid, ') ->', typ(resultVar));
                 const arg = expr.args[i];
                 const got = inferExpr(argTenv, arg);
                 args.push(got);
                 const mid2 = args.map(typ).concat(holes.slice(i + 1));
-                stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...mid2, ')');
+                stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...mid2, ') ->', typ(resultVar));
                 stackBreak();
             }
 
             // console.log(expr.target, targetType.value);
             // console.log('args', expr.args);
-            unify(typeApply(globalState.subst, targetType), tfns(args, resultVar));
+            unify(
+                typeApply(globalState.subst, targetType),
+                tfns(args, resultVar),
+                expr.src,
+                `applied function with inferred arguments and result variable`,
+            );
             stackPop();
             return typeApply(globalState.subst, resultVar);
             // }
@@ -601,7 +606,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             stackBreak();
             stackReplace(src, kwd('if'), '(', hole(true), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));
             const cond = inferExpr(tenv, expr.cond);
-            unify(cond, { type: 'con', name: 'bool' });
+            unify(cond, { type: 'con', name: 'bool' }, expr.cond.src, 'if condition must be bool');
             stackReplace(
                 src,
                 kwd('if'),
@@ -639,7 +644,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
 
             const two = expr.no ? inferExpr(tenv, expr.no) : undefined;
             const twov = two ? two : { type: 'con' as const, name: 'void' };
-            unify(one, twov);
+            unify(one, twov, expr.src, 'if branches must agree');
 
             stackPop();
             return one;
@@ -711,7 +716,7 @@ const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
             const subPatterns = pat.args.map((arg) => inferPattern(tenv, arg));
             const argTypes = subPatterns.map((s) => s[0]);
             const scopes = subPatterns.map((s) => s[1]);
-            argTypes.forEach((arg, i) => unify(arg, cargs[i]));
+            argTypes.forEach((arg, i) => unify(arg, cargs[i], pat.src, 'pattern argument with constructor argument'));
             cres = typeApply(globalState.subst, cres);
             const scope = scopes.reduce((a, b) => ({ ...a, ...b }));
             return [cres, scope];

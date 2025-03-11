@@ -4,9 +4,10 @@ import { colors, RenderType } from './RenderType';
 
 const accent = '#aaf';
 
-export const ShowUnify = ({ one, two, subst }: { one: Type; two: Type; subst: Subst }) => {
+export const ShowUnify = ({ one, two, subst, message }: { one: Type; two: Type; subst: Subst; message: string }) => {
     return (
         <div style={{ border: `1px solid ${accent}`, textAlign: 'center' }}>
+            {message}
             <div style={{ backgroundColor: accent, color: 'black' }}>unify</div>
             <div>
                 <RenderType t={one} />
@@ -15,6 +16,7 @@ export const ShowUnify = ({ one, two, subst }: { one: Type; two: Type; subst: Su
             <div>
                 <RenderType t={two} />
             </div>
+            <div style={{ backgroundColor: accent, color: 'black' }}>substitutions:</div>
             <div style={{ height: 2, backgroundColor: accent }} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr max-content max-content max-content 1fr', columnGap: 8 }}>
                 {Object.entries(subst).map(([key, type]) => (
@@ -48,7 +50,7 @@ export const RenderEvent = ({ event }: { event: Event }) => {
             );
         case 'unify':
             return (
-                <ShowUnify one={event.one} two={event.two} subst={event.subst} />
+                <ShowUnify message={event.message} one={event.one} two={event.two} subst={event.subst} />
                 // <div>
                 //     <div>
                 //         <RenderType t={event.one} />

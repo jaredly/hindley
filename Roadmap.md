@@ -7,6 +7,8 @@ need to show (1) (2) (3) etc. in the code pane on the left...
 
 - [ ] have a text description of where the `unify` is coming from
 
+- [ ] need unify to be part of the stack
+
 ##
 
 iffff valueNull, what if I just make a variable for it?
