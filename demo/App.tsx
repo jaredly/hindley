@@ -114,6 +114,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
     const t = ctx.byLoc[id];
     // const freeVbls = t ? typeFree(t) : [];
     // const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
+    const bgc = ctx.highlight.includes(id) ? '#700' : undefined;
     const num = ctx.stackSrc[id];
     return (
         <span
@@ -127,6 +128,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                 display: !multiline ? 'inline-block' : 'inline',
                 // borderRadius: 4,
                 // backgroundColor: 'rgba(255,0,0,0.01)',
+                // backgroundColor: bgc,
                 // alignItems: 'flex-start',
             }}
         >
@@ -153,7 +155,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
             >
                 {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
                 {num ? <Num n={num} /> : null}
-                {children}
+                <span style={{ background: bgc }}>{children}</span>
                 {t ? (
                     <span
                         style={{
@@ -192,10 +194,10 @@ const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
 const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     const meta = ctx.parsed.ctx.meta[node.loc];
     let style: React.CSSProperties = styles[meta?.kind as 'kwd'];
-    if (ctx.highlight.includes(node.loc)) {
-        style = { ...style };
-        style.backgroundColor = '#700';
-    }
+    // if (ctx.highlight.includes(node.loc)) {
+    //     style = { ...style };
+    //     style.backgroundColor = '#700';
+    // }
     switch (node.type) {
         case 'id':
             if (meta?.kind === 'decl') {
@@ -485,7 +487,7 @@ export const Example = ({ text }: { text: string }) => {
     // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
     const allLocs: string[] = [];
 
-    const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right) : [src.left]);
+    const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right).concat([`${src.left}:${src.right}`]) : [src.left]);
 
     const last = stack.stack[stack.stack.length - 1];
     if (last.type === 'unify') {
