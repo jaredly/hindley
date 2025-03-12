@@ -75,6 +75,7 @@ export const braceColor = 'rgb(100, 200, 200)';
 export const braceColorHl = 'rgb(0, 150, 150)';
 
 type Ctx = {
+    onClick(evt: NodeClick): void;
     highlightVars: string[];
     nodes: Nodes;
     highlight: string[];
@@ -107,10 +108,12 @@ const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => v
 //     }
 // });
 
+type NodeClick = { type: 'var'; name: string } | { type: 'ref'; loc: string };
+
 const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
     const t = ctx.byLoc[id];
-    const freeVbls = t ? typeFree(t) : [];
-    const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
+    // const freeVbls = t ? typeFree(t) : [];
+    // const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
     const num = ctx.stackSrc[id];
     return (
         <span
@@ -158,7 +161,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                             color: '#666',
                         }}
                     >
-                        : <RenderType t={t} highlightVars={ctx.highlightVars} />
+                        : <RenderType t={t} highlightVars={ctx.highlightVars} onClick={(name) => ({ type: 'var', name })} />
                     </span>
                 ) : null}
             </span>
@@ -458,6 +461,19 @@ export const Example = ({ text }: { text: string }) => {
     // const esrc = eventSrc(glob.events[at]);
     // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
     const allLocs: string[] = [];
+    const ctx: Ctx = {
+        stackSrc,
+        highlight: allLocs,
+        multis,
+        spans,
+        nodes: cst.nodes,
+        parsed,
+        byLoc,
+        highlightVars,
+        onClick(evt) {
+            console.log('evt', evt);
+        },
+    };
 
     return (
         <div style={{ margin: 32 }}>
@@ -469,11 +485,7 @@ export const Example = ({ text }: { text: string }) => {
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, fontFamily: 'Jet Brains' }}>
                     {cst.roots.map((root) => (
-                        <RenderNode
-                            key={root}
-                            node={cst.nodes[root]}
-                            ctx={{ stackSrc, highlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc, highlightVars }}
-                        />
+                        <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
@@ -486,9 +498,10 @@ export const Example = ({ text }: { text: string }) => {
                     types={byLoc}
                     nodes={cst.nodes}
                     highlightVars={highlightVars}
+                    onClick={ctx.onClick}
                 />
                 <div>
-                    <ShowScope smap={smap} scope={{ ...relevantBuiltins, ...scopeToShow }} highlightVars={highlightVars} />
+                    <ShowScope smap={smap} scope={{ ...relevantBuiltins, ...scopeToShow }} highlightVars={highlightVars} ctx={ctx} />
                 </div>
             </div>
             {/* <ScopeDebug scope={scope} /> */}
@@ -527,6 +540,7 @@ const Sidebar = ({
     latest,
     stack,
     highlightVars,
+    onClick,
 }: {
     subst: Subst[];
     highlightVars: string[];
@@ -536,6 +550,7 @@ const Sidebar = ({
     types: Record<string, Type>;
     nodes: Nodes;
     latest: Event;
+    onClick(evt: NodeClick): void;
 }) => {
     const variables: Record<string, number> = {};
     Object.values(types).forEach((t) => {
@@ -546,7 +561,7 @@ const Sidebar = ({
     });
     return (
         <div style={{ width: 500 }}>
-            <ShowStacks subst={smap} stack={stack} hv={highlightVars} />
+            <ShowStacks subst={smap} stack={stack} hv={highlightVars} onClick={(name) => onClick({ type: 'var', name })} />
             {/* {latest ? <RenderEvent event={latest} /> : 'NOEV'} */}
             {/* <pre>{JSON.stringify(variables, null, 2)}</pre> */}
         </div>
@@ -555,7 +570,7 @@ const Sidebar = ({
     // Second: type annotations with type variables
 };
 
-const ShowScope = ({ smap, scope, highlightVars }: { smap: Subst; scope: Tenv['scope']; highlightVars: string[] }) => {
+const ShowScope = ({ smap, scope, highlightVars, ctx }: { ctx: Ctx; smap: Subst; scope: Tenv['scope']; highlightVars: string[] }) => {
     return (
         <div
             style={{
@@ -597,7 +612,11 @@ const ShowScope = ({ smap, scope, highlightVars }: { smap: Subst; scope: Tenv['s
                             <div key={k} style={{ display: 'contents' }}>
                                 <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
                                 <div style={{ textAlign: 'left' }}>
-                                    <RenderScheme s={schemeApply(smap, scope[k])} highlightVars={highlightVars} />
+                                    <RenderScheme
+                                        s={schemeApply(smap, scope[k])}
+                                        highlightVars={highlightVars}
+                                        onClick={(name) => ctx.onClick({ type: 'var', name })}
+                                    />
                                 </div>
                             </div>
                         ))}

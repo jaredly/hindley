@@ -21,22 +21,22 @@ const hlstyle = {
     border: '1px solid ' + colors.hl,
 };
 
-export const RenderScheme = ({ s, highlightVars }: { s: Scheme; highlightVars: string[] }) => {
-    if (!s.vars.length) return <RenderType t={s.body} highlightVars={highlightVars} />;
+export const RenderScheme = ({ s, highlightVars, onClick }: { s: Scheme; highlightVars: string[]; onClick(vname: string): void }) => {
+    if (!s.vars.length) return <RenderType t={s.body} highlightVars={highlightVars} onClick={onClick} />;
     highlightVars = highlightVars.filter((h) => !s.vars.includes(h));
     return (
         <span>
             &lt;
             {s.vars.map((v, i) => (
-                <RenderType t={{ type: 'var', name: v }} key={i} highlightVars={[]} />
+                <RenderType t={{ type: 'var', name: v }} key={i} highlightVars={[]} onClick={onClick} />
             ))}
             &gt;
-            <RenderType t={s.body} highlightVars={highlightVars} />
+            <RenderType t={s.body} highlightVars={highlightVars} onClick={onClick} />
         </span>
     );
 };
 
-export const RenderType = ({ t, highlightVars }: { t: Type; highlightVars: string[] }) => {
+export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVars: string[]; onClick(vname: string): void }) => {
     switch (t.type) {
         case 'var':
             return (
@@ -50,6 +50,7 @@ export const RenderType = ({ t, highlightVars }: { t: Type; highlightVars: strin
                         color: colors.vbl,
                         ...(highlightVars.includes(t.name) ? hlstyle : undefined),
                     }}
+                    onClick={() => onClick(t.name)}
                 >
                     {t.name}
                 </span>
@@ -59,13 +60,13 @@ export const RenderType = ({ t, highlightVars }: { t: Type; highlightVars: strin
                 <span style={{ color: colors.punct }}>
                     {'('}
                     {interleave(
-                        t.args.map((arg, i) => <RenderType t={arg} key={i} highlightVars={highlightVars} />),
+                        t.args.map((arg, i) => <RenderType t={arg} key={i} highlightVars={highlightVars} onClick={onClick} />),
                         (i) => (
                             <span key={`sep-${i}`}>,&nbsp;</span>
                         ),
                     )}
                     {') => '}
-                    <RenderType t={t.result} highlightVars={highlightVars} />
+                    <RenderType t={t.result} highlightVars={highlightVars} onClick={onClick} />
                 </span>
             );
         case 'app':
@@ -80,7 +81,7 @@ export const RenderType = ({ t, highlightVars }: { t: Type; highlightVars: strin
                     <span style={{ color: colors.punct }}>
                         (
                         {interleave(
-                            args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} />),
+                            args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} onClick={onClick} />),
                             (i) => (
                                 <span key={'c-' + i}>, </span>
                             ),
@@ -91,10 +92,10 @@ export const RenderType = ({ t, highlightVars }: { t: Type; highlightVars: strin
             }
             return (
                 <span style={{ color: colors.punct }}>
-                    <RenderType t={target} highlightVars={highlightVars} />
+                    <RenderType t={target} highlightVars={highlightVars} onClick={onClick} />
                     &lt;
                     {interleave(
-                        args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} />),
+                        args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} onClick={onClick} />),
                         (i) => (
                             <span key={'c-' + i}>, </span>
                         ),

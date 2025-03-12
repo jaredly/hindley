@@ -4,7 +4,7 @@ import { colors, RenderType } from './RenderType';
 import { OneStack, Num, Frame } from './App';
 import { ShowUnify } from './ShowUnify';
 
-export const ShowText = ({ text, subst, hv }: { hv: string[]; text: StackText; subst: Subst }) => {
+export const ShowText = ({ text, subst, hv, onClick }: { onClick(vname: string): void; hv: string[]; text: StackText; subst: Subst }) => {
     if (typeof text === 'string') return text;
     switch (text.type) {
         case 'hole':
@@ -33,13 +33,13 @@ export const ShowText = ({ text, subst, hv }: { hv: string[]; text: StackText; s
                         padding: '0px 4px',
                     }}
                 >
-                    <RenderType t={text.noSubst ? text.typ : typeApply(subst, text.typ)} highlightVars={hv} />
+                    <RenderType t={text.noSubst ? text.typ : typeApply(subst, text.typ)} highlightVars={hv} onClick={onClick} />
                 </span>
             );
     }
 };
 
-export const ShowStacks = ({ stack, subst, hv }: { hv: string[]; subst: Subst; stack?: Frame }) => {
+export const ShowStacks = ({ stack, subst, hv, onClick }: { onClick(vname: string): void; hv: string[]; subst: Subst; stack?: Frame }) => {
     if (!stack) return null;
     return (
         <div>
@@ -49,6 +49,7 @@ export const ShowStacks = ({ stack, subst, hv }: { hv: string[]; subst: Subst; s
                         return (
                             <ShowUnify
                                 key={j}
+                                onClick={onClick}
                                 oneName={item.oneName}
                                 twoName={item.twoName}
                                 message={item.message}
@@ -64,7 +65,7 @@ export const ShowStacks = ({ stack, subst, hv }: { hv: string[]; subst: Subst; s
                         <div key={j} style={{ marginBottom: 10 }}>
                             <Num n={j + 1} />
                             {item.text.map((t, i) => (
-                                <ShowText subst={subst} text={t} key={i} hv={hv} />
+                                <ShowText subst={subst} text={t} key={i} hv={hv} onClick={onClick} />
                             ))}
                         </div>
                     );

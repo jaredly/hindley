@@ -11,6 +11,7 @@ export const ShowUnify = ({
     message,
     first,
     hv,
+    onClick,
 }: {
     one: Type;
     two: Type;
@@ -20,6 +21,7 @@ export const ShowUnify = ({
     message?: string;
     first?: boolean;
     hv: string[];
+    onClick(vname: string): void;
 }) => {
     hv = Object.keys(subst);
     if (!first) {
@@ -46,7 +48,7 @@ export const ShowUnify = ({
             {/* <div style={{ display: 'contents' }}> */}
             <span style={{ textAlign: 'right', marginLeft: 8, fontFamily: 'Lora', fontStyle: 'italic' }}>{oneName}</span>
             <div style={{ textAlign: 'left', marginRight: 8 }}>
-                <RenderType t={one} highlightVars={hv} />
+                <RenderType t={one} highlightVars={hv} onClick={onClick} />
             </div>
             {/* </div> */}
             <div
@@ -57,7 +59,7 @@ export const ShowUnify = ({
             {/* <div> */}
             <span style={{ textAlign: 'right', marginLeft: 8, fontFamily: 'Lora', fontStyle: 'italic' }}>{twoName}</span>
             <div style={{ textAlign: 'left', marginRight: 8 }}>
-                <RenderType t={two} highlightVars={hv} />
+                <RenderType t={two} highlightVars={hv} onClick={onClick} />
             </div>
             {/* </div> */}
             <div
@@ -77,9 +79,9 @@ export const ShowUnify = ({
                 {Object.entries(subst).map(([key, type]) => (
                     <div key={key} style={{ display: 'contents' }}>
                         <div />
-                        <RenderType t={{ type: 'var', name: key }} highlightVars={hv} />
+                        <RenderType t={{ type: 'var', name: key }} highlightVars={hv} onClick={onClick} />
                         <div>{'->'}</div>
-                        <RenderType t={type} highlightVars={hv} />
+                        <RenderType t={type} highlightVars={hv} onClick={onClick} />
                         <div />
                     </div>
                 ))}
