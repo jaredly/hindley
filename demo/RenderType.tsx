@@ -7,24 +7,50 @@ export const colors = {
     punct: '#555',
     vbl: '#afa',
     con: '#aaf',
+    hl: 'rgb(237 255 0)',
 };
 
-export const RenderType = ({ t }: { t: Type }) => {
+const hlstyle = {
+    background: colors.hl, //'#550',
+    color: 'black',
+    padding: '0 4px',
+    lineHeight: '18px',
+
+    borderRadius: '50%',
+    display: 'inline-block',
+    border: '1px solid ' + colors.hl,
+};
+
+export const RenderType = ({ t, highlightVars }: { t: Type; highlightVars: string[] }) => {
     switch (t.type) {
         case 'var':
-            return <span style={{ fontStyle: 'italic', color: colors.vbl }}>{t.name}</span>;
+            return (
+                <span
+                    style={{
+                        fontStyle: 'italic',
+                        borderRadius: 6,
+                        lineHeight: '18px',
+                        display: 'inline-block',
+                        border: '1px solid transparent',
+                        color: colors.vbl,
+                        ...(highlightVars.includes(t.name) ? hlstyle : undefined),
+                    }}
+                >
+                    {t.name}
+                </span>
+            );
         case 'fn':
             return (
                 <span style={{ color: colors.punct }}>
                     {'('}
                     {interleave(
-                        t.args.map((arg, i) => <RenderType t={arg} key={i} />),
+                        t.args.map((arg, i) => <RenderType t={arg} key={i} highlightVars={highlightVars} />),
                         (i) => (
                             <span key={`sep-${i}`}>,&nbsp;</span>
                         ),
                     )}
                     {') => '}
-                    <RenderType t={t.result} />
+                    <RenderType t={t.result} highlightVars={highlightVars} />
                 </span>
             );
         case 'app':
@@ -39,7 +65,7 @@ export const RenderType = ({ t }: { t: Type }) => {
                     <span style={{ color: colors.punct }}>
                         (
                         {interleave(
-                            args.map((a, i) => <RenderType key={i} t={a} />),
+                            args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} />),
                             (i) => (
                                 <span key={'c-' + i}>, </span>
                             ),
@@ -50,10 +76,10 @@ export const RenderType = ({ t }: { t: Type }) => {
             }
             return (
                 <span style={{ color: colors.punct }}>
-                    <RenderType t={target} />
+                    <RenderType t={target} highlightVars={highlightVars} />
                     &lt;
                     {interleave(
-                        args.map((a, i) => <RenderType key={i} t={a} />),
+                        args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} />),
                         (i) => (
                             <span key={'c-' + i}>, </span>
                         ),

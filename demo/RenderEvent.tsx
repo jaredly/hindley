@@ -3,7 +3,7 @@ import { Event, getGlobalState } from '../infer/algw/algw-s2-return';
 import { RenderType } from './RenderType';
 import { ShowUnify } from './ShowUnify';
 
-export const RenderEvent = ({ event }: { event: Event }) => {
+export const RenderEvent = ({ event, hv }: { hv: string[]; event: Event }) => {
     switch (event.type) {
         case 'new-var':
             return (
@@ -15,7 +15,7 @@ export const RenderEvent = ({ event }: { event: Event }) => {
         case 'infer':
             return (
                 <span>
-                    Inferred {JSON.stringify(event.src)} <RenderType t={event.value} />
+                    Inferred {JSON.stringify(event.src)} <RenderType t={event.value} highlightVars={hv} />
                 </span>
             );
         case 'unify':
@@ -27,6 +27,7 @@ export const RenderEvent = ({ event }: { event: Event }) => {
                     one={event.one}
                     two={event.two}
                     subst={event.subst}
+                    hv={hv}
                 />
                 // <div>
                 //     <div>

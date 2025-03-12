@@ -4,7 +4,7 @@ import { colors, RenderType } from './RenderType';
 import { OneStack, Num, Frame } from './App';
 import { ShowUnify } from './ShowUnify';
 
-export const ShowText = ({ text, subst }: { text: StackText; subst: Subst }) => {
+export const ShowText = ({ text, subst, hv }: { hv: string[]; text: StackText; subst: Subst }) => {
     if (typeof text === 'string') return text;
     switch (text.type) {
         case 'hole':
@@ -33,13 +33,13 @@ export const ShowText = ({ text, subst }: { text: StackText; subst: Subst }) => 
                         padding: '0px 4px',
                     }}
                 >
-                    <RenderType t={typeApply(subst, text.typ)} />
+                    <RenderType t={typeApply(subst, text.typ)} highlightVars={hv} />
                 </span>
             );
     }
 };
 
-export const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: Frame }) => {
+export const ShowStacks = ({ stack, subst, hv }: { hv: string[]; subst: Subst; stack?: Frame }) => {
     if (!stack) return null;
     return (
         <div>
@@ -55,6 +55,8 @@ export const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: Frame }) =>
                                 one={item.one}
                                 two={item.two}
                                 subst={item.subst}
+                                first={item.first}
+                                hv={hv}
                             />
                         );
                     }
@@ -62,7 +64,7 @@ export const ShowStacks = ({ stack, subst }: { subst: Subst; stack?: Frame }) =>
                         <div key={j} style={{ marginBottom: 10 }}>
                             <Num n={j + 1} />
                             {item.text.map((t, i) => (
-                                <ShowText subst={subst} text={t} key={i} />
+                                <ShowText subst={subst} text={t} key={i} hv={hv} />
                             ))}
                         </div>
                     );

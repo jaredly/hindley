@@ -77,6 +77,7 @@ export const braceColor = 'rgb(100, 200, 200)';
 export const braceColorHl = 'rgb(0, 150, 150)';
 
 type Ctx = {
+    highlightVars: string[];
     nodes: Nodes;
     highlight: string[];
     stackSrc: Record<string, number>;
@@ -158,7 +159,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                             color: '#666',
                         }}
                     >
-                        : <RenderType t={t} />
+                        : <RenderType t={t} highlightVars={ctx.highlightVars} />
                     </span>
                 ) : null}
             </span>
@@ -257,7 +258,7 @@ export type Frame = { stack: OneStack[]; title: string };
 
 export type OneStack =
     | { text: StackText[]; src: Src; type: 'line' }
-    | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; oneName: string; twoName: string; message?: string };
+    | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; oneName: string; twoName: string; message?: string; first?: boolean };
 
 export const App = () => {
     const [selected, setSelected] = useState('One' as keyof typeof examples);
@@ -330,10 +331,11 @@ export const Example = ({ text }: { text: string }) => {
         return num;
     }, []);
 
-    const { byLoc, subst, types, scope, smap, stack } = useMemo(() => {
+    const { byLoc, subst, types, scope, smap, stack, highlightVars } = useMemo(() => {
         const byLoc: Record<string, Type> = {};
         const subst: Subst[] = [];
         const types: { src: Src; type: Type }[] = [];
+        let highlightVars: string[] = [];
         let smap: Subst = {};
         let scope: Tenv['scope'] = {};
 
@@ -354,10 +356,13 @@ export const Example = ({ text }: { text: string }) => {
                 case 'unify':
                     const has = Object.keys(evt.subst).length;
                     if (has) {
-                        stack.push(evt);
+                        stack.push({ ...evt, first: true });
                         stacks.push({ stack: stack.slice(), title: 'Unification result' });
                         stack.pop();
-                        if (stacks.length > at) break top;
+                        if (stacks.length > at) {
+                            highlightVars = Object.keys(evt.subst);
+                            break top;
+                        }
                         stack.push(evt);
                         stacks.push({ stack: stack.slice(), title: 'Unification result' });
                         stack.pop();
@@ -388,7 +393,7 @@ export const Example = ({ text }: { text: string }) => {
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
-        return { byLoc, subst, types, scope, smap, stack: stacks[at] };
+        return { byLoc, subst, types, scope, smap, stack: stacks[at], highlightVars };
     }, [at]);
 
     // const stack = stacks.length ? stacks[at] : undefined;
@@ -448,13 +453,22 @@ export const Example = ({ text }: { text: string }) => {
                         <RenderNode
                             key={root}
                             node={cst.nodes[root]}
-                            ctx={{ stackSrc, highlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc }}
+                            ctx={{ stackSrc, highlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc, highlightVars }}
                         />
                     ))}
                 </div>
                 {/* <Substs subst={subst} /> */}
-                <Sidebar stack={stack} latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
-                <ShowScope smap={smap} scope={scope} />
+                <Sidebar
+                    stack={stack}
+                    latest={glob.events[at]}
+                    smap={smap}
+                    subst={subst}
+                    scope={scope}
+                    types={byLoc}
+                    nodes={cst.nodes}
+                    highlightVars={highlightVars}
+                />
+                <ShowScope smap={smap} scope={scope} highlightVars={highlightVars} />
             </div>
             {/* <ScopeDebug scope={scope} /> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
@@ -491,8 +505,10 @@ const Sidebar = ({
     nodes,
     latest,
     stack,
+    highlightVars,
 }: {
     subst: Subst[];
+    highlightVars: string[];
     stack?: Frame;
     smap: Subst;
     scope: Tenv['scope'];
@@ -509,7 +525,7 @@ const Sidebar = ({
     });
     return (
         <div style={{ width: 500 }}>
-            <ShowStacks subst={smap} stack={stack} />
+            <ShowStacks subst={smap} stack={stack} hv={highlightVars} />
             {/* {latest ? <RenderEvent event={latest} /> : 'NOEV'} */}
             <pre>{JSON.stringify(variables, null, 2)}</pre>
         </div>
@@ -518,7 +534,7 @@ const Sidebar = ({
     // Second: type annotations with type variables
 };
 
-const ShowScope = ({ smap, scope }: { smap: Subst; scope: Tenv['scope'] }) => {
+const ShowScope = ({ smap, scope, highlightVars }: { smap: Subst; scope: Tenv['scope']; highlightVars: string[] }) => {
     return (
         <div
             style={{
@@ -551,7 +567,7 @@ const ShowScope = ({ smap, scope }: { smap: Subst; scope: Tenv['scope'] }) => {
                             <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
                             <div style={{ textAlign: 'left' }}>
                                 {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
-                                <RenderType t={typeApply(smap, scope[k].body)} />
+                                <RenderType t={typeApply(smap, scope[k].body)} highlightVars={highlightVars} />
                             </div>
                         </div>
                     ))}

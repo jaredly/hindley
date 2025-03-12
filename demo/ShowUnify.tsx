@@ -1,5 +1,5 @@
 import React from 'react';
-import { Type, Subst } from '../infer/algw/algw-s2-return';
+import { Type, Subst, typeApply } from '../infer/algw/algw-s2-return';
 import { colors, RenderType } from './RenderType';
 
 export const ShowUnify = ({
@@ -9,6 +9,8 @@ export const ShowUnify = ({
     twoName,
     subst,
     message,
+    first,
+    hv,
 }: {
     one: Type;
     two: Type;
@@ -16,7 +18,15 @@ export const ShowUnify = ({
     oneName: string;
     twoName: string;
     message?: string;
+    first?: boolean;
+    hv: string[];
 }) => {
+    hv = Object.keys(subst);
+    if (!first) {
+        one = typeApply(subst, one);
+        two = typeApply(subst, two);
+    }
+
     return (
         <div
             style={{
@@ -36,7 +46,7 @@ export const ShowUnify = ({
             {/* <div style={{ display: 'contents' }}> */}
             <span style={{ textAlign: 'right', marginLeft: 8, fontFamily: 'Lora', fontStyle: 'italic' }}>{oneName}</span>
             <div style={{ textAlign: 'left', marginRight: 8 }}>
-                <RenderType t={one} />
+                <RenderType t={one} highlightVars={hv} />
             </div>
             {/* </div> */}
             <div
@@ -47,7 +57,7 @@ export const ShowUnify = ({
             {/* <div> */}
             <span style={{ textAlign: 'right', marginLeft: 8, fontFamily: 'Lora', fontStyle: 'italic' }}>{twoName}</span>
             <div style={{ textAlign: 'left', marginRight: 8 }}>
-                <RenderType t={two} />
+                <RenderType t={two} highlightVars={hv} />
             </div>
             {/* </div> */}
             <div
@@ -67,9 +77,9 @@ export const ShowUnify = ({
                 {Object.entries(subst).map(([key, type]) => (
                     <div key={key} style={{ display: 'contents' }}>
                         <div />
-                        <RenderType t={{ type: 'var', name: key }} />
+                        <RenderType t={{ type: 'var', name: key }} highlightVars={hv} />
                         <div>{'->'}</div>
-                        <RenderType t={type} />
+                        <RenderType t={type} highlightVars={hv} />
                         <div />
                     </div>
                 ))}

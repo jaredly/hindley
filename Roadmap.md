@@ -8,10 +8,10 @@ need to show (1) (2) (3) etc. in the code pane on the left...
 - [x] have a text description of where the `unify` is coming from
 - [x] need unify to be part of the stack
 - [x] unify one & two need namessss
+- [ ] when a substitution happens, highlight the thing
 - [ ] gotta highlight the 'left' and 'right' items under unification
   - hmmm yeah.
-- [ ] scope on the right
-- [ ] when a substitution happens, highlight the thing
+- [x] scope on the right
 - [x] unify: have a stack-break for each substitution, so we can see each one applied.
 - [ ] also show available type variables?
 - [x] figure out why we're getting duplicate entries like (sometype) -> (sometype)

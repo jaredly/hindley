@@ -404,7 +404,7 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
                 stackPop();
                 stackReplace(src, kwd('let'), ' ', typ(pv), ' = ', hole());
                 globalState.events.push({ type: 'infer', src: pat.src, value: pv });
-                stackBreak(`create a type variable for the name '${pat.name}'`);
+                stackBreak("'let' statement");
                 stackReplace(src, kwd('let'), ' ', typ(pv), ' = ', hole(true));
                 // globalState.events.push({ type: 'stack-push', value: { type: 'let', pat: pv } });
                 const self = tenvWithScope(tenv, { [pat.name]: { body: pv, vars: [] } });
@@ -481,7 +481,7 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
     }
 };
 
-const commas = (v: StackText[]) => interleave(v, () => ', ');
+const commas = (v: StackText[], sep = ', ') => interleave(v, () => sep);
 
 export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
     switch (expr.type) {
@@ -522,13 +522,19 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             const returnVar = newTypeVar({ type: 'lambda-return', src: expr.src });
             let scope: Tenv['scope'] = { ['return']: { vars: [], body: returnVar } };
             let args: Type[] = [];
-            expr.args.forEach((pat) => {
+            expr.args.forEach((pat, i) => {
+                stackReplace(src, '(', ...commas(expr.args.map((_, j) => hole(j === i))), ') => ', hole());
+                stackBreak('arrow function argument #' + (i + 1));
                 let [argType, patScope] = inferPattern(tenv, pat);
                 patScope = scopeApply(globalState.subst, patScope);
                 args.push(argType);
                 Object.assign(scope, patScope);
                 globalState.events.push({ type: 'infer', src: pat.src, value: argType });
             });
+            stackReplace(src, '(', ...commas(args.map(typ)), '): ', hole(true), ' => ', hole());
+            stackPush(src, typ(returnVar));
+            stackBreak(`Create a type variable for tracking early returns`);
+            stackPop();
             let boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
             stackReplace(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', hole());
             stackBreak('arrow function');
@@ -561,13 +567,13 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             const src = expr.src;
 
             stackPush(src, hole(), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
-            stackBreak('function call');
+            stackBreak(`function call with ${expr.args.length} ${n(expr.args.length, 'argument', 'arguments')}`);
             stackReplace(src, hole(true), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
 
             let targetType = inferExpr(tenv, expr.target);
 
             stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
-            stackBreak('function call');
+            stackBreak(`function call with ${expr.args.length} ${n(expr.args.length, 'argument', 'arguments')}`);
 
             const argTenv = tenvApply(globalState.subst, tenv);
 
@@ -667,9 +673,30 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             if (!expr.stmts.length) {
                 return { type: 'con', name: 'void' };
             }
+            stackPush(
+                expr.src,
+                `{`,
+                ...commas(
+                    expr.stmts.map((s) => hole()),
+                    '; ',
+                ),
+                '}',
+            );
+            stackBreak(`block with ${expr.stmts.length} ${n(expr.stmts.length, 'statement', 'statements')}`);
             let scope = {};
             let value: Type | null = null;
+            let i = -1;
             for (let inner of expr.stmts) {
+                i++;
+                stackReplace(
+                    expr.src,
+                    `{`,
+                    ...commas(
+                        expr.stmts.map((s, n) => hole(n === i)),
+                        '; ',
+                    ),
+                    '}',
+                );
                 const applied = tenvApply(globalState.subst, tenv);
                 const res = inferStmt({ ...applied, scope: { ...applied.scope, ...scope } }, inner);
                 if (res.scope) {
@@ -677,6 +704,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 }
                 value = res.value;
             }
+            stackPop();
             if (!value) throw new Error('how did we get here');
             return typeApply(globalState.subst, value);
         }
@@ -725,7 +753,7 @@ const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
             const v = newTypeVar({ type: 'pat-var', name: pat.name, src: pat.src });
             globalState.events.push({ type: 'infer', src: pat.src, value: v });
             stackPush(pat.src, kwd(pat.name), ' -> ', typ(v));
-            stackBreak(`Create type variable for declaration '${pat.name}'`);
+            stackBreak(`Create type variable for name '${pat.name}'`);
             stackPop();
             return [v, { [pat.name]: { vars: [], body: v } }];
         }
@@ -780,3 +808,5 @@ const instantiateTcon = (tenv: Tenv, name: string): [Type[], Type] => {
     const subst = makeSubstForFree(con.free);
     return [con.args.map((arg) => typeApply(subst, arg)), typeApply(subst, con.result)];
 };
+
+const n = (n: number, one: string, two: string) => (n === 1 ? one : two);
