@@ -338,6 +338,7 @@ export const Example = ({ text }: { text: string }) => {
 
     useEffect(() => {
         const fn = (evt: KeyboardEvent) => {
+            if (window.document.activeElement != document.body) return;
             if (evt.key === ' ' || evt.key === 'ArrowRight') {
                 setAt((at) => Math.min(at + 1, breaks - 1));
             }
@@ -487,12 +488,11 @@ export const Example = ({ text }: { text: string }) => {
     // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
     const allLocs: string[] = [];
 
-    const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right).concat([`${src.left}:${src.right}`]) : [src.left]);
-
-    const last = stack.stack[stack.stack.length - 1];
-    if (last.type === 'unify') {
-        allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
-    }
+    // const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right).concat([`${src.left}:${src.right}`]) : [src.left]);
+    // const last = stack.stack[stack.stack.length - 1];
+    // if (last.type === 'unify') {
+    //     allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
+    // }
 
     const ctx: Ctx = {
         stackSrc,

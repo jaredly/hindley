@@ -18,8 +18,12 @@ Making the clickability...
 - [x] know at what stackliess we have a unify
 
 Nowww
-- [ ] highlight the two things being unified
-  - [ ] give Types a Src
+- [x] highlight the two things being unified
+  - [x] give Types a Src
+- [ ] but now, I want builtins to have a real src.
+  andd. hm. I think I want to highlight the component parts of the ... unification.
+  like maybe all sources in the type?
+
 
 ##
 
