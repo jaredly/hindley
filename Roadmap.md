@@ -13,6 +13,10 @@ NAVIGATION OK FOLKS
 not just stepping through, let's supercharge it.
 click a variable, and it jumps to where that variable is replaced.
 
+Making the clickability...
+1) know at what stackliness a give loc (next) gets a type
+2) know at what stackliess we have a unify
+
 ##
 
 Stack showing

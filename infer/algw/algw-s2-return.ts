@@ -15,7 +15,7 @@ export const builtinEnv = () => {
     const generic = (vars: string[], body: Type): Scheme => ({ vars, body });
     const tint: Type = { type: 'con', name: 'int' };
     const tbool: Type = { type: 'con', name: 'bool' };
-    const k: Type = { type: 'var', name: 'k' };
+    const t: Type = { type: 'var', name: 't' };
     const a: Type = { type: 'var', name: 'a' };
     const b: Type = { type: 'var', name: 'b' };
     const tapp = (target: Type, ...args: Type[]): Type => ({ type: 'app', args, target });
@@ -23,12 +23,12 @@ export const builtinEnv = () => {
     builtinEnv.scope['null'] = concrete({ type: 'con', name: 'null' });
     builtinEnv.scope['true'] = concrete({ type: 'con', name: 'bool' });
     builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool' });
-    builtinEnv.scope['length'] = generic(['k'], tfn(tapp(tcon('Array'), k), tint));
-    builtinEnv.scope['index'] = generic(['k'], tfns([tapp(tcon('Array'), k), tint], k));
-    builtinEnv.scope['push'] = generic(['k'], tfns([tapp(tcon('Array'), k), k], tcon('void')));
-    builtinEnv.scope['concat'] = generic(['k'], tfns([tapp(tcon('Array'), k), tapp(tcon('Array'), k)], tapp(tcon('Array'), k)));
-    builtinEnv.scope['[]'] = generic(['k'], tapp(tcon('Array'), k));
-    builtinEnv.scope['::'] = generic(['k'], tfns([k, tapp(tcon('Array'), k)], tapp(tcon('Array'), k)));
+    builtinEnv.scope['length'] = generic(['t'], tfn(tapp(tcon('Array'), t), tint));
+    builtinEnv.scope['index'] = generic(['t'], tfns([tapp(tcon('Array'), t), tint], t));
+    builtinEnv.scope['push'] = generic(['t'], tfns([tapp(tcon('Array'), t), t], tcon('void')));
+    builtinEnv.scope['concat'] = generic(['t'], tfns([tapp(tcon('Array'), t), tapp(tcon('Array'), t)], tapp(tcon('Array'), t)));
+    builtinEnv.scope['[]'] = generic(['t'], tapp(tcon('Array'), t));
+    builtinEnv.scope['::'] = generic(['t'], tfns([t, tapp(tcon('Array'), t)], tapp(tcon('Array'), t)));
     builtinEnv.scope['void'] = concrete({ type: 'con', name: 'void' });
     builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint));
     builtinEnv.scope['+='] = concrete(tfns([tint, tint], tint));
@@ -36,7 +36,7 @@ export const builtinEnv = () => {
     builtinEnv.scope['>'] = concrete(tfns([tint, tint], tbool));
     builtinEnv.scope['<'] = concrete(tfns([tint, tint], tbool));
     builtinEnv.scope['<='] = concrete(tfns([tint, tint], tbool));
-    builtinEnv.scope['='] = generic(['k'], tfns([k, k], tint));
+    builtinEnv.scope['='] = generic(['t'], tfns([t, t], tint));
     builtinEnv.scope[','] = generic(['a', 'b'], tfns([a, b], tapp(tcon(','), a, b)));
     builtinEnv.constructors[','] = { free: ['a', 'b'], args: [a, b], result: tapp(tcon(','), a, b) };
     return builtinEnv;

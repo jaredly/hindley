@@ -1,4 +1,4 @@
-import React, { JSX, ReactElement, useMemo, useState } from 'react';
+import React, { JSX, ReactElement, useEffect, useMemo, useState } from 'react';
 import { js, lex } from '../lang/lexer';
 import { childLocs, fromMap, Id, Node, Nodes, RecNodeT } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
@@ -108,7 +108,7 @@ const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => v
 //     }
 // });
 
-type NodeClick = { type: 'var'; name: string } | { type: 'ref'; loc: string };
+type NodeClick = { type: 'var'; name: string } | { type: 'ref'; loc: string } | { type: 'decl'; loc: string };
 
 const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
     const t = ctx.byLoc[id];
@@ -198,6 +198,20 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     }
     switch (node.type) {
         case 'id':
+            if (meta?.kind === 'decl') {
+                return (
+                    <span style={{ ...style, cursor: 'pointer' }} onClick={() => ctx.onClick({ type: 'decl', loc: node.loc })}>
+                        {node.text}
+                    </span>
+                );
+            }
+            if (meta?.kind === 'ref') {
+                return (
+                    <span style={{ ...style, cursor: 'pointer' }} onClick={() => ctx.onClick({ type: 'ref', loc: node.loc })}>
+                        {node.text}
+                    </span>
+                );
+            }
             return <span style={style}>{node.text}</span>;
         case 'text':
             return (
@@ -284,6 +298,13 @@ export const App = () => {
     );
 };
 
+const nextIndex = <T,>(arr: T[], f: (t: T) => any, start = 0) => {
+    for (; start < arr.length; start++) {
+        if (f(arr[start])) return start;
+    }
+    return null;
+};
+
 export const Example = ({ text }: { text: string }) => {
     const { glob, res, cst, node, parsed } = useMemo(() => {
         const cst = lex(js, text);
@@ -311,18 +332,20 @@ export const Example = ({ text }: { text: string }) => {
 
     const [at, setAt] = useState(0);
 
-    const breaks = useMemo(() => {
-        let num = 0;
-        glob.events.forEach((e) => {
-            if (e.type === 'stack-break') {
-                num++;
+    const breaks = useMemo(() => stackForEvt(glob.events.length, glob.events), [glob.events]);
+
+    useEffect(() => {
+        const fn = (evt: KeyboardEvent) => {
+            if (evt.key === ' ' || evt.key === 'ArrowRight') {
+                setAt((at) => Math.min(at + 1, breaks - 1));
             }
-            if (e.type === 'unify' && Object.keys(e.subst).length) {
-                num += 2;
+            if (evt.key === 'ArrowLeft') {
+                setAt((at) => Math.max(0, at - 1));
             }
-        });
-        return num;
-    }, []);
+        };
+        document.addEventListener('keydown', fn);
+        return () => document.removeEventListener('keydown', fn);
+    }, [breaks]);
 
     const relevantBuiltins = useMemo(() => {
         const refs = Object.entries(parsed.ctx.meta)
@@ -471,6 +494,17 @@ export const Example = ({ text }: { text: string }) => {
         byLoc,
         highlightVars,
         onClick(evt) {
+            if (evt.type === 'ref' || evt.type === 'decl') {
+                const nat = nextIndex(glob.events, (gevt) => gevt.type === 'infer' && gevt.src.left === evt.loc && !gevt.src.right, at + 1);
+                if (!nat) return;
+                const sat = stackForEvt(nat, glob.events);
+                if (sat !== 0) setAt(sat);
+            } else {
+                const nat = nextIndex(glob.events, (gevt) => gevt.type === 'unify' && gevt.subst[evt.name], at + 1);
+                if (!nat) return;
+                const sat = stackForEvt(nat, glob.events);
+                if (sat !== 0) setAt(sat);
+            }
             console.log('evt', evt);
         },
     };
@@ -480,7 +514,13 @@ export const Example = ({ text }: { text: string }) => {
             Hindley Milner visualization
             <div style={{ marginBottom: 32, marginTop: 8 }}>
                 <input type="range" min="0" style={{ marginRight: 16 }} max={breaks - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
-                {at}
+                <span style={{ display: 'inline-block', width: '2em' }}>{at}</span>
+                <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.max(0, at - 1))}>
+                    ⬅️
+                </button>
+                <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.min(at + 1, breaks - 1))}>
+                    ➡️
+                </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, fontFamily: 'Jet Brains' }}>
@@ -742,4 +782,18 @@ const eventSrc = (evt: Event) => {
         case 'new-var':
             return;
     }
+};
+
+const stackForEvt = (at: number, events: Event[]) => {
+    let num = 0;
+    for (let i = 0; i < at; i++) {
+        const e = events[i];
+        if (e.type === 'stack-break') {
+            num++;
+        }
+        if (e.type === 'unify' && Object.keys(e.subst).length) {
+            num += 2;
+        }
+    }
+    return num;
 };
