@@ -161,7 +161,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                             color: '#666',
                         }}
                     >
-                        : <RenderType t={t} highlightVars={ctx.highlightVars} onClick={(name) => ({ type: 'var', name })} />
+                        : <RenderType t={t} highlightVars={ctx.highlightVars} onClick={(name) => ctx.onClick({ type: 'var', name })} />
                     </span>
                 ) : null}
             </span>
@@ -488,7 +488,6 @@ export const Example = ({ text }: { text: string }) => {
                         <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
                     ))}
                 </div>
-                {/* <Substs subst={subst} /> */}
                 <Sidebar
                     stack={stack}
                     latest={glob.events[at]}
@@ -504,9 +503,6 @@ export const Example = ({ text }: { text: string }) => {
                     <ShowScope smap={smap} scope={{ ...relevantBuiltins, ...scopeToShow }} highlightVars={highlightVars} ctx={ctx} />
                 </div>
             </div>
-            {/* <ScopeDebug scope={scope} /> */}
-            {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
-            {/* <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div> */}
         </div>
     );
 };

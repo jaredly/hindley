@@ -29,6 +29,7 @@ then have a little thing underneath it with the syntax sugar; "ive taken a few l
 
 
 
+
 - A slide about the algorithm, walking through
   some sample function.
   fib doesn't seem powerful enough,
