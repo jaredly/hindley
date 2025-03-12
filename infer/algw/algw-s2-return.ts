@@ -223,8 +223,9 @@ export const generalize = (tenv: Tenv, t: Type): Scheme => {
 
 const hole = (active?: boolean): StackText => ({ type: 'hole', active });
 const kwd = (kwd: string): StackText => ({ type: 'kwd', kwd });
-const typ = (typ: Type): StackText => ({ type: 'type', typ });
-export type StackText = { type: 'hole'; active?: boolean } | { type: 'kwd'; kwd: string } | { type: 'type'; typ: Type } | string;
+// allowing number so that `.map(typ)` still works 🙃
+const typ = (typ: Type, noSubst: boolean | number = false): StackText => ({ type: 'type', typ, noSubst: noSubst === true });
+export type StackText = { type: 'hole'; active?: boolean } | { type: 'kwd'; kwd: string } | { type: 'type'; typ: Type; noSubst: boolean } | string;
 
 export type StackValue = StackText[];
 
@@ -245,7 +246,7 @@ export type Event =
     | { type: 'stack-push'; value: StackValue; src: Src }
     | { type: 'stack-pop' };
 
-type State = { nextId: number; subst: Subst; events: Event[]; tvarMeta: Record<string, TvarMeta>; latestScope?: Tenv['scope'] };
+export type State = { nextId: number; subst: Subst; events: Event[]; tvarMeta: Record<string, TvarMeta>; latestScope?: Tenv['scope'] };
 
 type TvarMeta =
     | { type: 'free'; prev: string }
@@ -278,7 +279,7 @@ const makeName = (n: number) => {
 
 export const newTypeVar = (meta: TvarMeta): Extract<Type, { type: 'var' }> => {
     const name = makeName(globalState.nextId++);
-    // globalState.events.push({ type: 'new-var', name });
+    globalState.events.push({ type: 'new-var', name });
     globalState.tvarMeta[name] = meta;
     return { type: 'var', name };
 };
@@ -495,7 +496,15 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             const got = tenv.scope[expr.name];
             if (!got) throw new Error(`variable not found in scope ${expr.name}`);
             if (got.vars.length) {
-                stackPush(expr.src, kwd(expr.name), ' -> ', '<', ...got.vars.map((name) => typ({ type: 'var', name })), '>', typ(got.body));
+                stackPush(
+                    expr.src,
+                    kwd(expr.name),
+                    ' -> ',
+                    '<',
+                    ...got.vars.map((name) => typ({ type: 'var', name }, true)),
+                    '>',
+                    typ(got.body, true),
+                );
             } else {
                 stackPush(expr.src, kwd(expr.name), ' -> ', typ(got.body));
             }
@@ -517,13 +526,13 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 throw new Error(`cant have an empty lambda sry`);
             }
             const src = expr.src;
-            stackPush(src, '(', ...commas(expr.args.map(() => hole())), ') => ', hole());
+            stackPush(src, '(', ...commas(expr.args.map(() => hole())), '): ', hole(), ' => ', hole());
             stackBreak('arrow function');
             const returnVar = newTypeVar({ type: 'lambda-return', src: expr.src });
             let scope: Tenv['scope'] = { ['return']: { vars: [], body: returnVar } };
             let args: Type[] = [];
             expr.args.forEach((pat, i) => {
-                stackReplace(src, '(', ...commas(expr.args.map((_, j) => hole(j === i))), ') => ', hole());
+                stackReplace(src, '(', ...commas(expr.args.map((_, j) => hole(j === i))), '): ', hole(), ' => ', hole());
                 stackBreak('arrow function argument #' + (i + 1));
                 let [argType, patScope] = inferPattern(tenv, pat);
                 patScope = scopeApply(globalState.subst, patScope);
@@ -622,45 +631,45 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
         case 'if': {
             const src = expr.src;
             // TODO: handle else
-            stackPush(src, kwd('if'), '(', hole(), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));
+            stackPush(src, kwd('if'), ' (', hole(), ') {', hole(), '}', ...(expr.no ? [' else {', hole(), ')'] : []));
             stackBreak('if conditional');
-            stackReplace(src, kwd('if'), '(', hole(true), ') {', hole(), '}', ...(expr.no ? ['else {', hole(), ')'] : []));
+            stackReplace(src, kwd('if'), ' (', hole(true), ') {', hole(), '}', ...(expr.no ? [' else {', hole(), ')'] : []));
             const cond = inferExpr(tenv, expr.cond);
             unify(cond, { type: 'con', name: 'bool' }, expr.cond.src, 'if condition', 'must be bool');
             stackReplace(
                 src,
                 kwd('if'),
-                '(',
+                ' (',
                 typ(typeApply(globalState.subst, cond)),
                 ') {',
                 hole(),
                 '}',
-                ...(expr.no ? ['else {', hole(), ')'] : []),
+                ...(expr.no ? [' else {', hole(), ')'] : []),
             );
             stackBreak('if conditional');
 
             stackReplace(
                 src,
                 kwd('if'),
-                '(',
+                ' (',
                 typ(typeApply(globalState.subst, cond)),
                 ') {',
                 hole(true),
                 '}',
-                ...(expr.no ? ['else {', hole(), ')'] : []),
+                ...(expr.no ? [' else {', hole(), ')'] : []),
             );
             const one = inferExpr(tenv, expr.yes);
             stackReplace(
                 src,
                 kwd('if'),
-                '(',
+                ' (',
                 typ(typeApply(globalState.subst, cond)),
                 ') {',
                 typ(gtypeApply(one)),
                 '}',
-                ...(expr.no ? ['else {', hole(), ')'] : []),
+                ...(expr.no ? [' else {', hole(), ')'] : []),
             );
-            stackBreak('if conditional');
+            stackBreak('if yes');
 
             const two = expr.no ? inferExpr(tenv, expr.no) : undefined;
             const twov = two ? two : { type: 'con' as const, name: 'void' };

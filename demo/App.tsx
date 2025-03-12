@@ -29,46 +29,44 @@ import { ShowStacks } from './ShowText';
 const env = builtinEnv();
 
 const examples = {
-    Function: `(one, (two, three)) => one + three`,
+    'Function & Pattern': `(one, (two, three)) => one + three`,
     One: `let f = (arg) => {
     let (one, two) = arg; one + 2}`,
     Two: '{\nlet names = [];names.push("Kai")}',
+    Quicksort: `let quicksort = (arr) => {
+if (arr.length <= 1) {
+return arr}
+let pivot = arr[arr.length - 1]
+let leftArr = []
+let rightArr = []
+for (let i = 0; i < arr.length; i += 1) {
+if (arr[i] <= pivot) {
+    leftArr.push(arr[i])
+} else {
+    rightArr.push(arr[i])
+}
+}
+return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
+}`,
+    Fibbonacci: `{
+let fib = (n) => {
+if (n <= 1) {return 1}
+return fib(n - 1) + fib(n - 2)
+}
+fib
+}`,
+    Example: `{
+let example = (value, f) => {
+    let things = []
+    if (value > 10) {
+        things.push(f(value))
+    }
+    things
+}
+    example
+}`,
 };
 
-// const text = `{\nlet quicksort = (arr) => {
-// if (arr.length <= 1) {
-// return arr}
-// let pivot = arr[arr.length - 1]
-// let leftArr = []
-// let rightArr = []
-// for (let i = 0; i < arr.length; i += 1) {
-// if (arr[i] <= pivot) {
-//     leftArr.push(arr[i])
-// } else {
-//     rightArr.push(arr[i])
-// }
-// }
-// return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
-// };quicksort}`;
-
-// const text = `{
-// let fib = (n) => {
-// if (n <= 1) {return 1}
-// return fib(n - 1) + fib(n - 2)
-// }
-// fib
-// }`;
-
-// const text = `{
-// let example = (value, f) => {
-//     let things = []
-//     if (value > 10) {
-//         things.push(f(value))
-//     }
-//     things
-// }
-//     example
-// }`;
 // const text = `(x) => {let (a, _) = x; a(2)}`;
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
@@ -89,7 +87,8 @@ type Ctx = {
 
 const styles = {
     decl: { color: '#c879df' },
-    ref: { color: 'rgb(255 90 68)' },
+    ref: { color: 'rgb(103 234 255)' }, //'rgb(255 90 68)' },
+    number: { color: '#e6ff00' },
     kwd: { color: '#2852c7' },
     punct: { color: 'gray' },
     unparsed: { color: 'red' },
@@ -265,10 +264,10 @@ export const App = () => {
 
     return (
         <div>
-            <div>
+            <div style={{ margin: 8 }}>
                 {Object.keys(examples).map((key) => (
                     <button
-                        style={{ padding: '2px 4px', background: selected === key ? '#666' : 'transparent' }}
+                        style={{ padding: '2px 8px', background: selected === key ? '#666' : 'transparent' }}
                         key={key}
                         disabled={selected === key}
                         onClick={() => setSelected(key as keyof typeof examples)}
@@ -331,7 +330,8 @@ export const Example = ({ text }: { text: string }) => {
         return num;
     }, []);
 
-    const { byLoc, subst, types, scope, smap, stack, highlightVars } = useMemo(() => {
+    const { byLoc, subst, types, scope, smap, stack, highlightVars, activeVbls } = useMemo(() => {
+        const activeVbls: string[] = [];
         const byLoc: Record<string, Type> = {};
         const subst: Subst[] = [];
         const types: { src: Src; type: Type }[] = [];
@@ -352,6 +352,9 @@ export const Example = ({ text }: { text: string }) => {
                     break;
                 case 'stack-break':
                     stacks.push({ stack: stack.slice(), title: evt.title });
+                    break;
+                case 'new-var':
+                    activeVbls.push(evt.name);
                     break;
                 case 'unify':
                     const has = Object.keys(evt.subst).length;
@@ -393,7 +396,7 @@ export const Example = ({ text }: { text: string }) => {
         Object.keys(byLoc).forEach((k) => {
             byLoc[k] = typeApply(smap, byLoc[k]);
         });
-        return { byLoc, subst, types, scope, smap, stack: stacks[at], highlightVars };
+        return { byLoc, subst, types, scope, smap, stack: stacks[at], highlightVars, activeVbls };
     }, [at]);
 
     // const stack = stacks.length ? stacks[at] : undefined;
@@ -440,13 +443,12 @@ export const Example = ({ text }: { text: string }) => {
     const allLocs: string[] = [];
 
     return (
-        <div className="m-2">
+        <div style={{ margin: 32 }}>
             Hindley Milner visualization
-            <div>
-                <input type="range" min="0" max={breaks - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
+            <div style={{ marginBottom: 32, marginTop: 8 }}>
+                <input type="range" min="0" style={{ marginRight: 16 }} max={breaks - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
                 {at}
             </div>
-            <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, fontFamily: 'Jet Brains' }}>
                     {cst.roots.map((root) => (
@@ -468,7 +470,9 @@ export const Example = ({ text }: { text: string }) => {
                     nodes={cst.nodes}
                     highlightVars={highlightVars}
                 />
-                <ShowScope smap={smap} scope={scope} highlightVars={highlightVars} />
+                <div>
+                    <ShowScope smap={smap} scope={scope} highlightVars={highlightVars} />
+                </div>
             </div>
             {/* <ScopeDebug scope={scope} /> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
@@ -539,7 +543,6 @@ const ShowScope = ({ smap, scope, highlightVars }: { smap: Subst; scope: Tenv['s
         <div
             style={{
                 border: `1px solid ${colors.accent}`,
-                fontFamily: 'Jet Brains',
                 textAlign: 'center',
                 width: 300,
             }}
@@ -549,29 +552,41 @@ const ShowScope = ({ smap, scope, highlightVars }: { smap: Subst; scope: Tenv['s
             >
                 Scope
             </div>
-            <div
-                style={{
-                    display: 'grid',
-                    marginTop: 24,
-                    marginBottom: 16,
-                    gridTemplateColumns: 'max-content 1fr',
-                    gridTemplateRows: 'max-content',
-                    columnGap: 12,
-                    minWidth: 200,
-                }}
-            >
-                {Object.keys(scope)
-                    .filter((k) => !env.scope[k])
-                    .map((k) => (
-                        <div key={k} style={{ display: 'contents' }}>
-                            <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
-                            <div style={{ textAlign: 'left' }}>
-                                {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
-                                <RenderType t={typeApply(smap, scope[k].body)} highlightVars={highlightVars} />
+            {!Object.keys(scope).length ? (
+                <div
+                    style={{
+                        marginTop: 24,
+                        marginBottom: 16,
+                    }}
+                >
+                    No variables defined
+                </div>
+            ) : (
+                <div
+                    style={{
+                        display: 'grid',
+                        marginTop: 24,
+                        marginBottom: 16,
+                        gridTemplateColumns: 'max-content 1fr',
+                        gridTemplateRows: 'max-content',
+                        fontFamily: 'Jet Brains',
+                        columnGap: 12,
+                        minWidth: 200,
+                    }}
+                >
+                    {Object.keys(scope)
+                        .filter((k) => !env.scope[k])
+                        .map((k) => (
+                            <div key={k} style={{ display: 'contents' }}>
+                                <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
+                                <div style={{ textAlign: 'left' }}>
+                                    {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
+                                    <RenderType t={typeApply(smap, scope[k].body)} highlightVars={highlightVars} />
+                                </div>
                             </div>
-                        </div>
-                    ))}
-            </div>
+                        ))}
+                </div>
+            )}
         </div>
     );
 };

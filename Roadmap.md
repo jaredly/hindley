@@ -8,7 +8,7 @@ need to show (1) (2) (3) etc. in the code pane on the left...
 - [x] have a text description of where the `unify` is coming from
 - [x] need unify to be part of the stack
 - [x] unify one & two need namessss
-- [ ] when a substitution happens, highlight the thing
+- [x] when a substitution happens, highlight the thing
 - [ ] gotta highlight the 'left' and 'right' items under unification
   - hmmm yeah.
 - [x] scope on the right

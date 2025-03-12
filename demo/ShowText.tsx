@@ -33,7 +33,7 @@ export const ShowText = ({ text, subst, hv }: { hv: string[]; text: StackText; s
                         padding: '0px 4px',
                     }}
                 >
-                    <RenderType t={typeApply(subst, text.typ)} highlightVars={hv} />
+                    <RenderType t={text.noSubst ? text.typ : typeApply(subst, text.typ)} highlightVars={hv} />
                 </span>
             );
     }
