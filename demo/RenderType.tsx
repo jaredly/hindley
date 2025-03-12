@@ -28,7 +28,7 @@ export const RenderScheme = ({ s, highlightVars, onClick }: { s: Scheme; highlig
         <span>
             &lt;
             {s.vars.map((v, i) => (
-                <RenderType t={{ type: 'var', name: v }} key={i} highlightVars={[]} onClick={onClick} />
+                <RenderType t={{ type: 'var', name: v, src: { left: '' } }} key={i} highlightVars={[]} onClick={onClick} />
             ))}
             &gt;
             <RenderType t={s.body} highlightVars={highlightVars} onClick={onClick} />

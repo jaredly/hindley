@@ -79,7 +79,7 @@ export const ShowUnify = ({
                 {Object.entries(subst).map(([key, type]) => (
                     <div key={key} style={{ display: 'contents' }}>
                         <div />
-                        <RenderType t={{ type: 'var', name: key }} highlightVars={hv} onClick={onClick} />
+                        <RenderType t={{ type: 'var', name: key, src: { left: 'unknown' } }} highlightVars={hv} onClick={onClick} />
                         <div>{'->'}</div>
                         <RenderType t={type} highlightVars={hv} onClick={onClick} />
                         <div />

@@ -193,7 +193,7 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
     const meta = ctx.parsed.ctx.meta[node.loc];
     let style: React.CSSProperties = styles[meta?.kind as 'kwd'];
     if (ctx.highlight.includes(node.loc)) {
-        if (!style) style = {};
+        style = { ...style };
         style.backgroundColor = '#700';
     }
     switch (node.type) {
@@ -484,6 +484,14 @@ export const Example = ({ text }: { text: string }) => {
     // const esrc = eventSrc(glob.events[at]);
     // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
     const allLocs: string[] = [];
+
+    const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right) : [src.left]);
+
+    const last = stack.stack[stack.stack.length - 1];
+    if (last.type === 'unify') {
+        allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
+    }
+
     const ctx: Ctx = {
         stackSrc,
         highlight: allLocs,
