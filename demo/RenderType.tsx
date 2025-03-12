@@ -1,5 +1,5 @@
 import React from 'react';
-import { Type } from '../infer/algw/algw-s2-return';
+import { Scheme, Type } from '../infer/algw/algw-s2-return';
 import { interleave } from './interleave';
 
 export const colors = {
@@ -19,6 +19,21 @@ const hlstyle = {
     borderRadius: '50%',
     display: 'inline-block',
     border: '1px solid ' + colors.hl,
+};
+
+export const RenderScheme = ({ s, highlightVars }: { s: Scheme; highlightVars: string[] }) => {
+    if (!s.vars.length) return <RenderType t={s.body} highlightVars={highlightVars} />;
+    highlightVars = highlightVars.filter((h) => !s.vars.includes(h));
+    return (
+        <span>
+            &lt;
+            {s.vars.map((v, i) => (
+                <RenderType t={{ type: 'var', name: v }} key={i} highlightVars={[]} />
+            ))}
+            &gt;
+            <RenderType t={s.body} highlightVars={highlightVars} />
+        </span>
+    );
 };
 
 export const RenderType = ({ t, highlightVars }: { t: Type; highlightVars: string[] }) => {

@@ -386,11 +386,17 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
                 throw new Error(`cant return, we are not in a lambda`);
             }
             if (!stmt.value) {
+                stackPush(stmt.src, `return`);
+                stackBreak('return statement');
                 unify(tenv.scope['return'].body, { type: 'con', name: 'void' }, stmt.src, 'early return type', 'empty return');
+                stackPop();
                 return { value };
             }
+            stackPush(stmt.src, `return `, hole(true));
+            stackBreak('return statement');
             const inner = inferExpr(tenv, stmt.value);
             unify(tenv.scope['return'].body, inner, stmt.src, 'early return type', 'return value');
+            stackPop();
             return { value };
         }
         case 'let': {
@@ -556,6 +562,8 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             // we encountered.
             // IF `returnVar` has no substs, or IF bodyType is a
             // substless vbl, we can do this ~quietly.
+            stackReplace(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', typ(bodyType));
+            stackBreak(`Unifying body type with early return type`);
             unify(bodyType, typeApply(globalState.subst, returnVar), expr.src, `inferred body type`, `early return type`);
 
             stackReplace(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', typ(typeApply(globalState.subst, returnVar)));
@@ -575,13 +583,23 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
             const src = expr.src;
 
-            stackPush(src, hole(), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
+            const pre = expr.target.type === 'var' ? [kwd(expr.target.name), ' call '] : [];
+
+            stackPush(src, ...pre, hole(), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
             stackBreak(`function call with ${expr.args.length} ${n(expr.args.length, 'argument', 'arguments')}`);
-            stackReplace(src, hole(true), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
+            stackReplace(src, ...pre, hole(true), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
 
             let targetType = inferExpr(tenv, expr.target);
 
-            stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
+            stackReplace(
+                src,
+                ...pre,
+                typ(typeApply(globalState.subst, targetType)),
+                '(',
+                ...commas(expr.args.map(() => hole())),
+                ') -> ',
+                typ(resultVar),
+            );
             stackBreak(`function call with ${expr.args.length} ${n(expr.args.length, 'argument', 'arguments')}`);
 
             const argTenv = tenvApply(globalState.subst, tenv);
@@ -594,14 +612,16 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             let args: Type[] = [];
             for (let i = 0; i < expr.args.length; i++) {
                 const mid = commas(args.map(typ).concat([hole(true), ...holes.slice(i + 1)]));
-                stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...mid, ') -> ', typ(resultVar));
+                stackReplace(src, ...pre, typ(typeApply(globalState.subst, targetType)), '(', ...mid, ') -> ', typ(resultVar));
+                stackBreak('argument #' + (i + 1));
                 const arg = expr.args[i];
                 const got = inferExpr(argTenv, arg);
                 args.push(got);
-                const mid2 = commas(args.map(typ).concat(holes.slice(i + 1)));
-                stackReplace(src, typ(typeApply(globalState.subst, targetType)), '(', ...mid2, ') -> ', typ(resultVar));
-                stackBreak('argument #' + (i + 1));
+                // const mid2 = commas(args.map(typ).concat(holes.slice(i + 1)));
+                // stackReplace(src, ...pre, typ(typeApply(globalState.subst, targetType)), '(', ...mid2, ') -> ', typ(resultVar));
             }
+            stackReplace(src, ...pre, typ(typeApply(globalState.subst, targetType)), '(', ...commas(args.map(typ)), ') -> ', typ(resultVar));
+            stackBreak('Ready to unify');
 
             // console.log(expr.target, targetType.value);
             // console.log('args', expr.args);
@@ -689,7 +709,8 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                     expr.stmts.map((s) => hole()),
                     '; ',
                 ),
-                '}',
+                '} -> ',
+                hole(),
             );
             stackBreak(`block with ${expr.stmts.length} ${n(expr.stmts.length, 'statement', 'statements')}`);
             let scope = {};
@@ -704,7 +725,8 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                         expr.stmts.map((s, n) => hole(n === i)),
                         '; ',
                     ),
-                    '}',
+                    '} -> ',
+                    hole(),
                 );
                 const applied = tenvApply(globalState.subst, tenv);
                 const res = inferStmt({ ...applied, scope: { ...applied.scope, ...scope } }, inner);
@@ -713,8 +735,19 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 }
                 value = res.value;
             }
-            stackPop();
             if (!value) throw new Error('how did we get here');
+            stackReplace(
+                expr.src,
+                `{`,
+                ...commas(
+                    expr.stmts.map((s) => hole()),
+                    '; ',
+                ),
+                '} -> ',
+                typ(value!),
+            );
+            stackBreak(`block result type`);
+            stackPop();
             return typeApply(globalState.subst, value);
         }
         // case 'Array': {

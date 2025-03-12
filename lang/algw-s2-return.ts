@@ -264,7 +264,7 @@ const rules = {
                 'suffixes',
                 star(
                     or<Suffix>(
-                        tx(seq(kwd('.', 'punct'), group('attribute', id('attribute'))), (ctx, src) => ({
+                        tx(seq(kwd('.', 'punct'), group('attribute', meta(id('attribute'), 'attribute'))), (ctx, src) => ({
                             type: 'attribute',
                             attribute: ctx.ref<Id<Loc>>('attribute'),
                             src,

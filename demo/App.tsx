@@ -1,6 +1,6 @@
 import React, { JSX, ReactElement, useMemo, useState } from 'react';
 import { js, lex } from '../lang/lexer';
-import { childLocs, fromMap, Node, Nodes, RecNodeT } from '../lang/nodes';
+import { childLocs, fromMap, Id, Node, Nodes, RecNodeT } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
 import {
     builtinEnv,
@@ -11,6 +11,7 @@ import {
     inferExpr,
     inferStmt,
     resetState,
+    schemeApply,
     StackText,
     Stmt,
     Subst,
@@ -22,11 +23,9 @@ import {
 } from '../infer/algw/algw-s2-return';
 import { Src } from '../lang/parse-dsl';
 import { RenderEvent } from './RenderEvent';
-import { colors, RenderType } from './RenderType';
+import { colors, RenderScheme, RenderType } from './RenderType';
 import { interleave } from './interleave';
 import { ShowStacks } from './ShowText';
-
-const env = builtinEnv();
 
 const examples = {
     'Function & Pattern': `(one, (two, three)) => one + three`,
@@ -48,12 +47,9 @@ if (arr[i] <= pivot) {
 }
 return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
 }`,
-    Fibbonacci: `{
-let fib = (n) => {
+    Fibbonacci: `let fib = (n) => {
 if (n <= 1) {return 1}
 return fib(n - 1) + fib(n - 2)
-}
-fib
 }`,
     Example: `{
 let example = (value, f) => {
@@ -64,6 +60,10 @@ let example = (value, f) => {
     things
 }
     example
+}`,
+    Generic: `{
+    let two = (a) => [a, a];
+    (two(1), two(true))
 }`,
 };
 
@@ -276,13 +276,6 @@ export const App = () => {
                     </button>
                 ))}
             </div>
-            {/* <select onChange={(evt) => setSelected(evt.target.value as keyof typeof examples)} value={selected}>
-                {Object.keys(examples).map((key) => (
-                    <option key={key} value={key}>
-                        {key}
-                    </option>
-                ))}
-            </select> */}
             <Example key={selected} text={examples[selected]} />
         </div>
     );
@@ -299,6 +292,7 @@ export const Example = ({ text }: { text: string }) => {
         // console.log(parsed.result);
         resetState();
 
+        const env = builtinEnv();
         const glob = getGlobalState();
 
         let res;
@@ -314,9 +308,6 @@ export const Example = ({ text }: { text: string }) => {
 
     const [at, setAt] = useState(0);
 
-    // const stack = useMemo(() => {
-    // }, [at]);
-
     const breaks = useMemo(() => {
         let num = 0;
         glob.events.forEach((e) => {
@@ -329,6 +320,23 @@ export const Example = ({ text }: { text: string }) => {
         });
         return num;
     }, []);
+
+    const relevantBuiltins = useMemo(() => {
+        const refs = Object.entries(parsed.ctx.meta)
+            .filter(([kwd, v]) => v.kind === 'ref' || v.kind === 'bop' || v.kind === 'attribute')
+            .map((k) => cst.nodes[k[0]])
+            .filter((n): n is Id<string> => n.type === 'id')
+            .map((id) => id.text);
+        const builtins: Tenv['scope'] = {};
+        const tenv = builtinEnv();
+        refs.forEach((ref) => {
+            if (tenv.scope[ref]) {
+                builtins[ref] = tenv.scope[ref];
+            }
+        });
+
+        return builtins;
+    }, [parsed]);
 
     const { byLoc, subst, types, scope, smap, stack, highlightVars, activeVbls } = useMemo(() => {
         const activeVbls: string[] = [];
@@ -398,6 +406,15 @@ export const Example = ({ text }: { text: string }) => {
         });
         return { byLoc, subst, types, scope, smap, stack: stacks[at], highlightVars, activeVbls };
     }, [at]);
+
+    const scopeToShow = useMemo(() => {
+        const res: Tenv['scope'] = {};
+        const env = builtinEnv();
+        Object.keys(scope)
+            .filter((k) => !env.scope[k])
+            .forEach((k) => (res[k] = scope[k]));
+        return res;
+    }, [scope]);
 
     // const stack = stacks.length ? stacks[at] : undefined;
     const stackSrc: Record<string, number> = {};
@@ -471,7 +488,7 @@ export const Example = ({ text }: { text: string }) => {
                     highlightVars={highlightVars}
                 />
                 <div>
-                    <ShowScope smap={smap} scope={scope} highlightVars={highlightVars} />
+                    <ShowScope smap={smap} scope={{ ...relevantBuiltins, ...scopeToShow }} highlightVars={highlightVars} />
                 </div>
             </div>
             {/* <ScopeDebug scope={scope} /> */}
@@ -531,7 +548,7 @@ const Sidebar = ({
         <div style={{ width: 500 }}>
             <ShowStacks subst={smap} stack={stack} hv={highlightVars} />
             {/* {latest ? <RenderEvent event={latest} /> : 'NOEV'} */}
-            <pre>{JSON.stringify(variables, null, 2)}</pre>
+            {/* <pre>{JSON.stringify(variables, null, 2)}</pre> */}
         </div>
     );
     // First: variables in scope, minus builtins
@@ -544,7 +561,7 @@ const ShowScope = ({ smap, scope, highlightVars }: { smap: Subst; scope: Tenv['s
             style={{
                 border: `1px solid ${colors.accent}`,
                 textAlign: 'center',
-                width: 300,
+                width: 400,
             }}
         >
             <div
@@ -575,13 +592,12 @@ const ShowScope = ({ smap, scope, highlightVars }: { smap: Subst; scope: Tenv['s
                     }}
                 >
                     {Object.keys(scope)
-                        .filter((k) => !env.scope[k])
+                        // .filter((k) => !env.scope[k])
                         .map((k) => (
                             <div key={k} style={{ display: 'contents' }}>
                                 <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
                                 <div style={{ textAlign: 'left' }}>
-                                    {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
-                                    <RenderType t={typeApply(smap, scope[k].body)} highlightVars={highlightVars} />
+                                    <RenderScheme s={schemeApply(smap, scope[k])} highlightVars={highlightVars} />
                                 </div>
                             </div>
                         ))}

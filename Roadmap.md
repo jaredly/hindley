@@ -1,4 +1,20 @@
 
+Ok I think the walk through looks great.
+
+QUESTION: what things can I remove to make it simpler?
+- [ ] obviously the 'early return' shenanigans. BUT I kinda want it, because it shows that we can be very typescript-looking?
+  - another option is to ditch the 'blocks have values' thing. honestly that might be better, for the moment.
+    could have a config option or something.
+- [ ] the '.attributes is a function call' thing is ... a little weird.
+
+##
+
+NAVIGATION OK FOLKS
+not just stepping through, let's supercharge it.
+click a variable, and it jumps to where that variable is replaced.
+
+##
+
 Stack showing
 
 I think the bones are there?

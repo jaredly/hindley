@@ -3,6 +3,9 @@ Ok, so with 5 minutes, I have like 5 slides?
 
 - An intro slide -- comparing vs the typescript inference algorithm.
 
+a slide "This [algorithm] has been modified from its original version. it has been modified to fit your [typescript]"
+I know I'm dating myself with this one. Are there any VHS appreciators in the audience?
+
 - A slide about the math? "demystifying the math"
   -> tying each image into my little animation doohickey
 
@@ -12,6 +15,19 @@ Ok, so with 5 minutes, I have like 5 slides?
   1: left: a              | right: int
   2: left: array(a)       | right: array(int)
   3: left: (a, bool) => c | right: (int, d) => (m, n)
+
+
+
+THE ALGORITHM
+
+Show the syntax
+then have a little thing underneath it with the syntax sugar; "ive taken a few liberties with the syntax"
+- a.b(c) -> b(a, c)
+- a[b]   -> index(a, b)
+
+
+
+
 
 - A slide about the algorithm, walking through
   some sample function.

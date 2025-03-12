@@ -69,7 +69,22 @@ export const ShowStacks = ({ stack, subst, hv }: { hv: string[]; subst: Subst; s
                         </div>
                     );
                 })}
-                <div style={{ fontFamily: 'Lora', fontSize: '120%', marginTop: 12 }}>{stack.title}</div>
+                <div>
+                    <div
+                        style={{
+                            fontFamily: 'Lora',
+                            fontSize: '120%',
+                            marginTop: 12,
+                            backgroundColor: colors.accent,
+                            color: 'black',
+                            padding: '4px 8px',
+                            borderRadius: 4,
+                            display: 'inline-block',
+                        }}
+                    >
+                        {stack.title}
+                    </div>
+                </div>
             </div>
         </div>
     );
