@@ -22,13 +22,14 @@ import {
 } from '../infer/algw/algw-s2-return';
 import { Src } from '../lang/parse-dsl';
 import { RenderEvent } from './RenderEvent';
-import { RenderType } from './RenderType';
+import { colors, RenderType } from './RenderType';
 import { interleave } from './interleave';
 import { ShowStacks } from './ShowText';
 
 const env = builtinEnv();
 
 const examples = {
+    Function: `(one, (two, three)) => one + three`,
     One: `let f = (arg) => {
     let (one, two) = arg; one + 2}`,
     Two: '{\nlet names = [];names.push("Kai")}',
@@ -263,13 +264,25 @@ export const App = () => {
 
     return (
         <div>
-            <select onChange={(evt) => setSelected(evt.target.value as keyof typeof examples)} value={selected}>
+            <div>
+                {Object.keys(examples).map((key) => (
+                    <button
+                        style={{ padding: '2px 4px', background: selected === key ? '#666' : 'transparent' }}
+                        key={key}
+                        disabled={selected === key}
+                        onClick={() => setSelected(key as keyof typeof examples)}
+                    >
+                        {key}
+                    </button>
+                ))}
+            </div>
+            {/* <select onChange={(evt) => setSelected(evt.target.value as keyof typeof examples)} value={selected}>
                 {Object.keys(examples).map((key) => (
                     <option key={key} value={key}>
                         {key}
                     </option>
                 ))}
-            </select>
+            </select> */}
             <Example key={selected} text={examples[selected]} />
         </div>
     );
@@ -429,8 +442,8 @@ export const Example = ({ text }: { text: string }) => {
                 {at}
             </div>
             <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
-            <div style={{ display: 'flex', flexDirection: 'row' }}>
-                <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, fontFamily: 'Jet Brains' }}>
                     {cst.roots.map((root) => (
                         <RenderNode
                             key={root}
@@ -441,6 +454,7 @@ export const Example = ({ text }: { text: string }) => {
                 </div>
                 {/* <Substs subst={subst} /> */}
                 <Sidebar stack={stack} latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
+                <ShowScope smap={smap} scope={scope} />
             </div>
             {/* <ScopeDebug scope={scope} /> */}
             {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
@@ -494,27 +508,56 @@ const Sidebar = ({
         });
     });
     return (
-        <div style={{ flex: 1 }}>
+        <div style={{ width: 500 }}>
             <ShowStacks subst={smap} stack={stack} />
-            <div style={{ display: 'grid', marginTop: 24, marginBottom: 16, gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
-                {Object.keys(scope)
-                    .filter((k) => !env.scope[k])
-                    .map((k) => (
-                        <div key={k} style={{ display: 'contents' }}>
-                            <div>{k}</div>
-                            <div>
-                                {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
-                                <RenderType t={typeApply(smap, scope[k].body)} />
-                            </div>
-                        </div>
-                    ))}
-            </div>
             {/* {latest ? <RenderEvent event={latest} /> : 'NOEV'} */}
             <pre>{JSON.stringify(variables, null, 2)}</pre>
         </div>
     );
     // First: variables in scope, minus builtins
     // Second: type annotations with type variables
+};
+
+const ShowScope = ({ smap, scope }: { smap: Subst; scope: Tenv['scope'] }) => {
+    return (
+        <div
+            style={{
+                border: `1px solid ${colors.accent}`,
+                fontFamily: 'Jet Brains',
+                textAlign: 'center',
+                width: 300,
+            }}
+        >
+            <div
+                style={{ backgroundColor: colors.accent, color: 'black', gridColumn: '1/3', marginBottom: 8, fontFamily: 'Lora', fontWeight: 'bold' }}
+            >
+                Scope
+            </div>
+            <div
+                style={{
+                    display: 'grid',
+                    marginTop: 24,
+                    marginBottom: 16,
+                    gridTemplateColumns: 'max-content 1fr',
+                    gridTemplateRows: 'max-content',
+                    columnGap: 12,
+                    minWidth: 200,
+                }}
+            >
+                {Object.keys(scope)
+                    .filter((k) => !env.scope[k])
+                    .map((k) => (
+                        <div key={k} style={{ display: 'contents' }}>
+                            <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
+                            <div style={{ textAlign: 'left' }}>
+                                {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
+                                <RenderType t={typeApply(smap, scope[k].body)} />
+                            </div>
+                        </div>
+                    ))}
+            </div>
+        </div>
+    );
 };
 
 const Substs = ({ subst }: { subst: { name: string; type: Type }[] }) => {

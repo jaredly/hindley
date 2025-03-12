@@ -385,11 +385,11 @@ export const inferStmt = (tenv: Tenv, stmt: Stmt): { value: Type; scope?: Tenv['
                 throw new Error(`cant return, we are not in a lambda`);
             }
             if (!stmt.value) {
-                unify(tenv.scope['return'].body, { type: 'con', name: 'void' }, stmt.src, 'lambda return type', 'empty return');
+                unify(tenv.scope['return'].body, { type: 'con', name: 'void' }, stmt.src, 'early return type', 'empty return');
                 return { value };
             }
             const inner = inferExpr(tenv, stmt.value);
-            unify(tenv.scope['return'].body, inner, stmt.src, 'lambda return type', 'return value');
+            unify(tenv.scope['return'].body, inner, stmt.src, 'early return type', 'return value');
             return { value };
         }
         case 'let': {
@@ -517,6 +517,8 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 throw new Error(`cant have an empty lambda sry`);
             }
             const src = expr.src;
+            stackPush(src, '(', ...commas(expr.args.map(() => hole())), ') => ', hole());
+            stackBreak('arrow function');
             const returnVar = newTypeVar({ type: 'lambda-return', src: expr.src });
             let scope: Tenv['scope'] = { ['return']: { vars: [], body: returnVar } };
             let args: Type[] = [];
@@ -528,7 +530,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 globalState.events.push({ type: 'infer', src: pat.src, value: argType });
             });
             let boundEnv = { ...tenv, scope: { ...tenv.scope, ...scope } };
-            stackPush(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', hole());
+            stackReplace(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', hole());
             stackBreak('arrow function');
             stackReplace(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', hole(true));
 
@@ -539,7 +541,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             // we encountered.
             // IF `returnVar` has no substs, or IF bodyType is a
             // substless vbl, we can do this ~quietly.
-            unify(bodyType, typeApply(globalState.subst, returnVar), expr.src, `inferred body type`, `lambda return type`);
+            unify(bodyType, typeApply(globalState.subst, returnVar), expr.src, `inferred body type`, `early return type`);
 
             stackReplace(src, '(', ...commas(args.map(typ)), '): ', typ(returnVar), ' => ', typ(typeApply(globalState.subst, returnVar)));
             stackBreak('arrow function');
@@ -728,14 +730,26 @@ const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
             return [v, { [pat.name]: { vars: [], body: v } }];
         }
         case 'con': {
+            stackPush(
+                pat.src,
+                kwd(pat.name),
+                ' -> ',
+                ...(tenv.constructors[pat.name].free.length
+                    ? ['<', ...commas(tenv.constructors[pat.name].free.map((name) => typ({ type: 'var', name }))), '>']
+                    : []),
+                typ({ type: 'fn', args: tenv.constructors[pat.name].args, result: tenv.constructors[pat.name].result }),
+            );
+            stackBreak('Type constructor lookup');
             let [cargs, cres] = instantiateTcon(tenv, pat.name);
 
             if (cargs.length !== pat.args.length) throw new Error(`wrong number of arguments to type constructor ${pat.name}`);
 
             const scope: Tenv['scope'] = {};
 
-            stackPush(pat.src, kwd(pat.name), ' -> ', typ({ type: 'fn', args: cargs, result: cres }));
-            stackBreak('Type constructor lookup');
+            if (tenv.constructors[pat.name].free.length) {
+                stackReplace(pat.src, kwd(pat.name), ' -> ', typ({ type: 'fn', args: cargs, result: cres }));
+                stackBreak('Create new type variables for constructor');
+            }
 
             for (let i = 0; i < pat.args.length; i++) {
                 let sub = inferPattern(tenv, pat.args[i]);

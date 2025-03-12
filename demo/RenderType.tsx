@@ -3,6 +3,7 @@ import { Type } from '../infer/algw/algw-s2-return';
 import { interleave } from './interleave';
 
 export const colors = {
+    accent: '#aaf',
     punct: '#555',
     vbl: '#afa',
     con: '#aaf',
