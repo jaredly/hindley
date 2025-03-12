@@ -301,6 +301,7 @@ export const App = () => {
 };
 
 const nextIndex = <T,>(arr: T[], f: (t: T) => any, start = 0) => {
+    console.log('starting from', start);
     for (; start < arr.length; start++) {
         if (f(arr[start])) return start;
     }
@@ -505,12 +506,20 @@ export const Example = ({ text }: { text: string }) => {
         highlightVars,
         onClick(evt) {
             if (evt.type === 'ref' || evt.type === 'decl') {
-                const nat = nextIndex(glob.events, (gevt) => gevt.type === 'infer' && gevt.src.left === evt.loc && !gevt.src.right, at + 1);
-                if (!nat) return;
-                const sat = stackForEvt(nat, glob.events);
-                if (sat !== 0) setAt(sat);
+                setAt((at) => {
+                    const nat = nextIndex(
+                        glob.events,
+                        (gevt) => gevt.type === 'infer' && gevt.src.left === evt.loc && !gevt.src.right,
+                        evtForStack(at, glob.events) + 2,
+                    );
+                    if (!nat) return at;
+                    console.log('found it', nat);
+                    const sat = stackForEvt(nat, glob.events);
+                    if (sat !== 0) return sat;
+                    return at;
+                });
             } else {
-                const nat = nextIndex(glob.events, (gevt) => gevt.type === 'unify' && gevt.subst[evt.name], at + 1);
+                const nat = nextIndex(glob.events, (gevt) => gevt.type === 'unify' && gevt.subst[evt.name], evtForStack(at, glob.events) + 2);
                 if (!nat) return;
                 const sat = stackForEvt(nat, glob.events);
                 if (sat !== 0) setAt(sat);
@@ -792,6 +801,21 @@ const eventSrc = (evt: Event) => {
         case 'new-var':
             return;
     }
+};
+
+const evtForStack = (at: number, events: Event[]) => {
+    let num = 0;
+    let i = 0;
+    for (; i < events.length && num < at; i++) {
+        const e = events[i];
+        if (e.type === 'stack-break') {
+            num++;
+        }
+        if (e.type === 'unify' && Object.keys(e.subst).length) {
+            num += 2;
+        }
+    }
+    return i;
 };
 
 const stackForEvt = (at: number, events: Event[]) => {

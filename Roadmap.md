@@ -6,6 +6,8 @@ QUESTION: what things can I remove to make it simpler?
   - another option is to ditch the 'blocks have values' thing. honestly that might be better, for the moment.
     could have a config option or something.
 - [ ] the '.attributes is a function call' thing is ... a little weird.
+- [ ] so actually the array :: dealio is much more confusing than just having an array literal thing.
+  so I should probably do that.
 
 ##
 
@@ -23,6 +25,7 @@ Nowww
 - [ ] but now, I want builtins to have a real src.
   andd. hm. I think I want to highlight the component parts of the ... unification.
   like maybe all sources in the type?
+- [-] ok disabled it, not really into it.
 
 
 ##
