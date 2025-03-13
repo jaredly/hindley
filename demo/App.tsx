@@ -24,6 +24,7 @@ import { RenderEvent } from './RenderEvent';
 import { colors, RenderScheme, RenderType } from './RenderType';
 import { interleave } from './interleave';
 import { ShowStacks } from './ShowText';
+import { Numtip } from './Numtip';
 
 const examples = {
     'Function & Pattern': `(one, (two, three)) => one + three`,
@@ -80,7 +81,7 @@ type Ctx = {
     highlight: string[];
     stackSrc: Record<string, number>;
     parsed: ParseResult<Stmt>;
-    byLoc: Record<string, Type>;
+    byLoc: Record<string, false | Type>;
     spans: Record<string, string[]>;
     multis: Record<string, true>;
 };
@@ -154,17 +155,17 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
             >
                 {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
                 <span style={{ background: bgc }}>
-                    <span style={{ position: 'relative' }}>{num ? <Num n={num} small /> : null}</span>
+                    <span style={{ position: 'relative' }}>{num ? <Numtip inline n={num} /> : null}</span>
                     {children}
                 </span>
-                {t ? (
+                {t != null ? (
                     <span
                         style={{
                             // fontSize: '80%',
                             color: '#666',
                         }}
                     >
-                        : <RenderType t={t} highlightVars={ctx.highlightVars} onClick={(name) => ctx.onClick({ type: 'var', name })} />
+                        : {t ? <RenderType t={t} highlightVars={ctx.highlightVars} onClick={(name) => ctx.onClick({ type: 'var', name })} /> : '_'}
                     </span>
                 ) : null}
             </span>
@@ -386,7 +387,7 @@ export const Example = ({ text }: { text: string }) => {
 
     const { byLoc, subst, types, scope, smap, stack, highlightVars, activeVbls } = useMemo(() => {
         const activeVbls: string[] = [];
-        const byLoc: Record<string, Type> = {};
+        const byLoc: Record<string, Type | false> = {};
         const subst: Subst[] = [];
         const types: { src: Src; type: Type }[] = [];
         let highlightVars: string[] = [];
@@ -446,9 +447,14 @@ export const Example = ({ text }: { text: string }) => {
                 scope = evt.scope;
             }
         }
+        Object.entries(parsed.ctx.meta).forEach(([loc, meta]) => {
+            if (meta.kind === 'decl' || meta.kind === 'fn-args') {
+                if (!byLoc[loc]) byLoc[loc] = false;
+            }
+        });
 
         Object.keys(byLoc).forEach((k) => {
-            byLoc[k] = typeApply(smap, byLoc[k]);
+            if (byLoc[k]) byLoc[k] = typeApply(smap, byLoc[k]);
         });
         return { byLoc, subst, types, scope, smap, stack: stacks[at], highlightVars, activeVbls };
     }, [at]);
@@ -584,52 +590,6 @@ export const Example = ({ text }: { text: string }) => {
 
 const srcKey = (src: Src) => (src.right ? `${src.left}:${src.right}` : src.left);
 
-const numColor = 'rgb(255, 170, 170)';
-export const Num = ({ n, small }: { n: number; small?: boolean }) => (
-    <span
-        style={
-            small
-                ? {
-                      // backgroundColor: '#faa',
-                      // color: 'black',
-                      // fontFamily: 'Lora',
-                      // fontSize: 8,
-                      // width: 10,
-                      // marginLeft: -10,
-                      // marginTop: -10,
-
-                      // backgroundColor: 'rgb(255, 170, 170)',
-                      textShadow: `1px 1px 2px ${numColor}, -1px -1px 2px ${numColor}, 1px -1px 2px ${numColor}, -1px 1px 2px ${numColor}`,
-                      color: 'black',
-                      fontWeight: 'bold',
-                      fontFamily: 'Lora',
-                      // fontSize: '8px',
-                      width: '12px',
-                      marginLeft: '-12px',
-                      display: 'inline-block',
-                      position: 'absolute',
-                      top: '-10px',
-                      textAlign: 'center',
-                      borderRadius: '50%',
-                      left: '2px',
-                  }
-                : {
-                      padding: '0px 6px',
-                      backgroundColor: '#faa',
-                      color: 'black',
-                      fontFamily: 'Lora',
-                      fontWeight: 'bold',
-                      // fontSize: 12,
-                      borderRadius: '50%',
-                      marginRight: 8,
-                      // display: 'inline-block',
-                  }
-        }
-    >
-        {n}
-    </span>
-);
-
 const Sidebar = ({
     subst,
     smap,
@@ -646,13 +606,14 @@ const Sidebar = ({
     stack?: Frame;
     smap: Subst;
     scope: Tenv['scope'];
-    types: Record<string, Type>;
+    types: Record<string, Type | false>;
     nodes: Nodes;
     latest: Event;
     onClick(evt: NodeClick): void;
 }) => {
     const variables: Record<string, number> = {};
     Object.values(types).forEach((t) => {
+        if (!t) return;
         const free = typeFree(t);
         free.forEach((name) => {
             variables[name] = (variables[name] || 0) + 1;

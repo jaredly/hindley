@@ -13,10 +13,10 @@ QUESTION: what things can I remove to make it simpler?
 - [x] fix detection of builtins
 
 How can I reduce the visual jumping around?
-- [ ] for things that will have a (1) number, reserve space for it? Will that look too weird?
+- [x] for things that will have a (1) number, reserve space for it? Will that look too weird?
   - alternatively, make the numbers much less obtrusive, like a superscript.
   - I should highlight the "final" number in a different color, so it's more obvious where we are.
-- [ ] also reserve a spot for inferrred variables `: _`
+- [x] also reserve a spot for inferrred variables `: _`
 
 ##
 

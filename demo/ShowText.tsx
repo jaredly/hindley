@@ -1,7 +1,9 @@
 import React from 'react';
 import { StackText, Subst, typeApply } from '../infer/algw/algw-s2-return';
 import { colors, RenderType } from './RenderType';
-import { OneStack, Num, Frame } from './App';
+import { OneStack, Frame } from './App';
+import { Num } from './numColor';
+import { Numtip } from './Numtip';
 import { ShowUnify } from './ShowUnify';
 
 export const ShowText = ({ text, subst, hv, onClick }: { onClick(vname: string): void; hv: string[]; text: StackText; subst: Subst }) => {
@@ -63,7 +65,7 @@ export const ShowStacks = ({ stack, subst, hv, onClick }: { onClick(vname: strin
                     }
                     return (
                         <div key={j} style={{ marginBottom: 10 }}>
-                            <Num n={j + 1} />
+                            <Numtip n={j + 1} />
                             {item.text.map((t, i) => (
                                 <ShowText subst={subst} text={t} key={i} hv={hv} onClick={onClick} />
                             ))}

@@ -8,7 +8,7 @@ export const colors = {
     punct: '#555',
     vbl: '#afa',
     con: '#aaf',
-    hl: 'rgb(237 255 0)',
+    hl: '#aaf', //'rgb(237 255 0)',
 };
 
 const hlstyle = {
@@ -65,7 +65,7 @@ export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVa
                         t.args.map((arg, i) => <RenderType t={arg} key={i} highlightVars={highlightVars} onClick={onClick} />),
                         (i) => (
                             <span key={`sep-${i}`}>,&nbsp;</span>
-                        )
+                        ),
                     )}
                     {') => '}
                     <RenderType t={t.result} highlightVars={highlightVars} onClick={onClick} />
@@ -86,7 +86,7 @@ export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVa
                             args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} onClick={onClick} />),
                             (i) => (
                                 <span key={'c-' + i}>, </span>
-                            )
+                            ),
                         )}
                         )
                     </span>
@@ -100,7 +100,7 @@ export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVa
                         args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} onClick={onClick} />),
                         (i) => (
                             <span key={'c-' + i}>, </span>
-                        )
+                        ),
                     )}
                     &gt;
                 </span>
