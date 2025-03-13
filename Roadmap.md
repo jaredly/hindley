@@ -8,8 +8,9 @@ QUESTION: what things can I remove to make it simpler?
   - another option is to ditch the 'blocks have values' thing. honestly that might be better, for the moment.
     could have a config option or something.
 - [ ] the '.attributes is a function call' thing is ... a little weird.
-- [ ] the "early return" type should be shown on the left hand side, in the `(): X => ...` position.
-- [ ] the for loop needs ; separators instead of , in order to be valid typescript.
+- [x] the "early return" type should be shown on the left hand side, in the `(): X => ...` position.
+- [x] the for loop needs ; separators instead of , in order to be valid typescript.
+- [x] fix detection of builtins
 
 ##
 

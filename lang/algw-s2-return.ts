@@ -4,7 +4,7 @@ import { Ctx, list, match, or, Rule, ref, tx, seq, kwd, group, id, star, Src, nu
 // import { binops, Block, Expr, kwds, Stmt } from './js--types';
 import { mergeSrc, nodesSrc } from './ts-types';
 import { Config } from './lexer';
-import { Block, Expr, Pat, Spread, Stmt } from '../infer/algw/algw-s2-return';
+import { Block, Expr, Pat, Spread, Stmt } from '../infer/algw/Type';
 
 export const kwds = ['for', 'return', 'new', 'await', 'throw', 'if', 'case', 'else', 'let', 'const', '=', '..', '.', 'fn'];
 export const binops = ['<', '>', '<=', '>=', '!=', '==', '+', '-', '*', '/', '^', '%', '=', '+=', '-=', '|=', '/=', '*='];
@@ -22,7 +22,7 @@ const stmts_spaced: Record<string, Rule<Stmt>> = {
         src,
     })),
     for: tx(
-        seq(kwd('for'), list('round', seq(ref('stmt', 'init'), ref('expr', 'cond'), ref('expr', 'update'))), ref('block', 'body')),
+        seq(kwd('for'), meta(list('round', seq(ref('stmt', 'init'), ref('expr', 'cond'), ref('expr', 'update'))), 'semi-list'), ref('block', 'body')),
         (ctx, src) => ({
             type: 'for',
             init: ctx.ref<Stmt>('init'),
@@ -30,7 +30,7 @@ const stmts_spaced: Record<string, Rule<Stmt>> = {
             update: ctx.ref<Expr>('update'),
             body: ctx.ref<Block>('body'),
             src,
-        }),
+        })
     ),
     // throw: tx<Stmt>(seq(kwd('throw'), ref('expr ', 'value')), (ctx, src) => ({
     //     type: 'throw',
@@ -138,7 +138,7 @@ const rules = {
         // tx(ref('block'), (ctx, src),
         // tx(kwd('return'), (_, src) => ({ type: 'return', value: null, src })),
         // kwd('continue'),
-        tx(ref('expr', 'expr'), (ctx, src) => ({ type: 'expr', expr: ctx.ref<Expr>('expr'), src })),
+        tx(ref('expr', 'expr'), (ctx, src) => ({ type: 'expr', expr: ctx.ref<Expr>('expr'), src }))
     ),
     pat: or<Pat>(
         tx(kwd('_'), (ctx, src) => ({ type: 'any', src })),
@@ -168,7 +168,7 @@ const rules = {
                 args: [left, right],
                 src,
             }));
-        }),
+        })
     ),
     comment: list('smooshed', seq(kwd('//', 'comment'), { type: 'any' })),
     block: tx<Block>(
@@ -179,10 +179,10 @@ const rules = {
                 star(
                     or(
                         tx(list({ type: 'plain' }, star({ type: 'any' })), (_, __) => true),
-                        ref('stmt'),
-                    ),
-                ),
-            ),
+                        ref('stmt')
+                    )
+                )
+            )
         ),
         (ctx, src) => {
             // let result = null as null | Expr;
@@ -205,7 +205,7 @@ const rules = {
             // }
             // return result ?? { type: 'var', name: 'empty-block', src };
             return { type: 'block', stmts: ctx.ref<Stmt[]>('contents'), src };
-        },
+        }
     ),
     ...stmts_spaced,
     'expr..': tx<Expr>(
@@ -229,12 +229,12 @@ const rules = {
                             type: 'call',
                             items: ctx.ref<Expr[]>('items'),
                             src,
-                        })),
-                    ),
-                ),
-            ),
+                        }))
+                    )
+                )
+            )
         ),
-        (ctx, src) => parseSmoosh(ctx.ref<Expr>('base'), ctx.ref<Suffix[]>('suffixes'), src),
+        (ctx, src) => parseSmoosh(ctx.ref<Expr>('base'), ctx.ref<Suffix[]>('suffixes'), src)
     ),
     expr: or(...Object.keys(exprs).map((name) => ref(name)), list('spaced', ref('expr ')), ref('block')),
     spread: tx<Spread<Expr>>(list('smooshed', seq(kwd('...'), ref('expr..', 'expr'))), (ctx, src) => ({
@@ -252,15 +252,18 @@ const rules = {
             yes: ctx.ref<Block>('yes'),
             no: ctx.ref<undefined | Expr>('no'),
             src,
-        }),
+        })
     ),
     'expr ': or(
-        tx<Expr>(seq(list('round', group('args', star(ref('pat')))), kwd('=>'), group('body', or(ref('block'), ref('expr ')))), (ctx, src) => ({
-            type: 'lambda',
-            args: ctx.ref<Pat[]>('args'),
-            body: ctx.ref<Expr>('body'),
-            src,
-        })),
+        tx<Expr>(
+            seq(meta(list('round', group('args', star(ref('pat')))), 'fn-args'), kwd('=>'), group('body', or(ref('block'), ref('expr ')))),
+            (ctx, src) => ({
+                type: 'lambda',
+                args: ctx.ref<Pat[]>('args'),
+                body: ctx.ref<Expr>('body'),
+                src,
+            })
+        ),
         ref('if'),
 
         tx<Expr>(
@@ -271,16 +274,16 @@ const rules = {
                     'cases',
                     table(
                         'curly',
-                        tx(seq(ref('pat', 'pat'), ref('block', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Block>('body') })),
-                    ),
-                ),
+                        tx(seq(ref('pat', 'pat'), ref('block', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Block>('body') }))
+                    )
+                )
             ),
             (ctx, src) => ({
                 type: 'match',
                 target: ctx.ref<Expr>('target'),
                 cases: ctx.ref<{ pat: Pat; body: Expr }[]>('cases'),
                 src,
-            }),
+            })
         ),
         tx<Expr>(seq(ref('expr', 'left'), ref('bop', 'op'), ref('expr', 'right')), (ctx, src) => ({
             type: 'app',
@@ -288,7 +291,7 @@ const rules = {
             args: [ctx.ref<Expr>('left'), ctx.ref<Expr>('right')],
             src,
         })),
-        ref('expr'),
+        ref('expr')
     ),
 };
 

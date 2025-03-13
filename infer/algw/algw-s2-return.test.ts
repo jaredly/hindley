@@ -2,7 +2,8 @@ import { test, expect } from 'bun:test';
 import { js, lex } from '../../lang/lexer';
 import { fromMap } from '../../lang/nodes';
 import { parser } from '../../lang/algw-s2-return';
-import { builtinEnv, inferExpr, inferStmt, resetState, Scheme, Tenv, tfns, Type, typeToString } from './algw-s2-return';
+import { builtinEnv, inferExpr, inferStmt, resetState, Scheme, Tenv, tfns, typeToString } from './algw-s2-return';
+import { Type } from './Type';
 
 const tests: ([string, string] | [string, string, true])[] = [
     [`10`, `int`],

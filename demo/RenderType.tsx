@@ -1,5 +1,6 @@
 import React from 'react';
-import { Scheme, Type } from '../infer/algw/algw-s2-return';
+import { Scheme } from '../infer/algw/algw-s2-return';
+import { Type } from '../infer/algw/Type';
 import { interleave } from './interleave';
 
 export const colors = {
@@ -64,7 +65,7 @@ export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVa
                         t.args.map((arg, i) => <RenderType t={arg} key={i} highlightVars={highlightVars} onClick={onClick} />),
                         (i) => (
                             <span key={`sep-${i}`}>,&nbsp;</span>
-                        ),
+                        )
                     )}
                     {') => '}
                     <RenderType t={t.result} highlightVars={highlightVars} onClick={onClick} />
@@ -85,7 +86,7 @@ export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVa
                             args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} onClick={onClick} />),
                             (i) => (
                                 <span key={'c-' + i}>, </span>
-                            ),
+                            )
                         )}
                         )
                     </span>
@@ -99,7 +100,7 @@ export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVa
                         args.map((a, i) => <RenderType key={i} t={a} highlightVars={highlightVars} onClick={onClick} />),
                         (i) => (
                             <span key={'c-' + i}>, </span>
-                        ),
+                        )
                     )}
                     &gt;
                 </span>

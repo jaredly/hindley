@@ -1,5 +1,6 @@
 import React from 'react';
-import { Type, Subst, typeApply } from '../infer/algw/algw-s2-return';
+import { Subst, typeApply } from '../infer/algw/algw-s2-return';
+import { Type } from '../infer/algw/Type';
 import { colors, RenderType } from './RenderType';
 
 export const ShowUnify = ({

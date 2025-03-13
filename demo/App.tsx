@@ -6,21 +6,19 @@ import {
     builtinEnv,
     composeSubst,
     Event,
-    Expr,
     getGlobalState,
     inferExpr,
     inferStmt,
     resetState,
     schemeApply,
     StackText,
-    Stmt,
     Subst,
     Tenv,
-    Type,
     typeApply,
     typeFree,
     typeToString,
 } from '../infer/algw/algw-s2-return';
+import { Expr, Stmt, traverseStmt, Type } from '../infer/algw/Type';
 import { Src } from '../lang/parse-dsl';
 import { RenderEvent } from './RenderEvent';
 import { colors, RenderScheme, RenderType } from './RenderType';
@@ -251,6 +249,7 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
                     </span>
                 );
             }
+            const sep = ctx.parsed.ctx.meta[node.loc]?.kind === 'semi-list' || node.kind === 'curly' ? ';' : ',';
             return (
                 <span style={style}>
                     <span style={styles.punct}>{opener[node.kind]}</span>
@@ -259,10 +258,10 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
                         node.children.map((id) => (
                             <span key={id} style={node.forceMultiline ? { marginLeft: 16, display: 'block' } : undefined}>
                                 <RenderNode key={id} node={ctx.nodes[id]} ctx={ctx} />
-                                {node.forceMultiline ? (node.kind === 'curly' ? null : ',') : null}
+                                {node.forceMultiline ? (node.kind === 'curly' ? null : sep) : null}
                             </span>
                         )),
-                        (i) => (node.forceMultiline ? null : <span key={'mid-' + i}>{node.kind === 'curly' ? '; ' : ', '}</span>),
+                        (i) => (node.forceMultiline ? null : <span key={'mid-' + i}>{sep + ' '}</span>),
                     )}
                     {/* {node.forceMultiline ? <br /> : null} */}
                     <span style={styles.punct}>{closer[node.kind]}</span>
@@ -287,7 +286,13 @@ export const App = () => {
             <div style={{ margin: 8 }}>
                 {Object.keys(examples).map((key) => (
                     <button
-                        style={{ padding: '2px 8px', background: selected === key ? '#666' : 'transparent' }}
+                        style={{
+                            padding: '2px 8px',
+                            background: selected === key ? '#aaa' : 'transparent',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            color: selected === key ? 'black' : undefined,
+                        }}
                         key={key}
                         disabled={selected === key}
                         onClick={() => setSelected(key as keyof typeof examples)}
@@ -353,11 +358,19 @@ export const Example = ({ text }: { text: string }) => {
     }, [breaks]);
 
     const relevantBuiltins = useMemo(() => {
-        const refs = Object.entries(parsed.ctx.meta)
-            .filter(([kwd, v]) => v.kind === 'ref' || v.kind === 'bop' || v.kind === 'attribute')
-            .map((k) => cst.nodes[k[0]])
-            .filter((n): n is Id<string> => n.type === 'id')
-            .map((id) => id.text);
+        // const refs = Object.entries(parsed.ctx.meta)
+        //     .filter(([kwd, v]) => v.kind === 'ref' || v.kind === 'bop' || v.kind === 'attribute')
+        //     .map((k) => cst.nodes[k[0]])
+        //     .filter((n): n is Id<string> => n.type === 'id')
+        //     .map((id) => id.text);
+        const refs: string[] = [];
+        traverseStmt(parsed.result!, {
+            visitExpr(expr) {
+                if (expr.type === 'var') {
+                    refs.push(expr.name);
+                }
+            },
+        });
         const builtins: Tenv['scope'] = {};
         const tenv = builtinEnv();
         refs.forEach((ref) => {
@@ -415,7 +428,7 @@ export const Example = ({ text }: { text: string }) => {
                 if (evt.src.right) {
                     // byLoc[evt.src.left + ':' + evt.src.right] = evt.value;
                 } else {
-                    if (!evt.src.right && parsed.ctx.meta[evt.src.left]?.kind === 'decl') {
+                    if (!evt.src.right && (parsed.ctx.meta[evt.src.left]?.kind === 'decl' || parsed.ctx.meta[evt.src.left]?.kind === 'fn-args')) {
                         byLoc[evt.src.left] = evt.value;
                     }
                 }
