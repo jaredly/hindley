@@ -113,56 +113,7 @@ const exprs: Record<string, Rule<Expr>> = {
         }));
     }),
     'expr array': tx(list('square', group('items', star(or(or(ref('spread'), ref('expr')))))), (ctx, src) => {
-        const groups: Expr[] = [];
-        let current: Expr[] = [];
-
-        const toArray = (items: Expr[]) =>
-            items.reduceRight((right, left) => ({ type: 'app', target: { type: 'var', name: '::', src }, args: [left, right], src }), {
-                type: 'var',
-                name: '[]',
-                src,
-            });
-
-        ctx.ref<(Expr | Spread<Expr>)[]>('items').forEach((item) => {
-            if (item.type === 'spread') {
-                if (current.length) {
-                    groups.push(toArray(current));
-                    current = [];
-                }
-                groups.push(item.inner);
-            } else {
-                current.push(item);
-            }
-        });
-
-        if (current.length) {
-            groups.push(toArray(current));
-        }
-        if (groups.length === 0) {
-            return { type: 'var', name: '[]', src };
-        }
-        if (groups.length === 1) {
-            return groups[0];
-        }
-        return groups.reduceRight(
-            (right, left): Expr => ({
-                type: 'app',
-                target: { type: 'var', name: 'concat', src },
-                args: [left, right],
-                src,
-            }),
-        );
-
-        //     ({
-        //     type: 'array',
-        //     src,
-        //     items: ctx.ref<(Expr | Spread<Expr>)[]>('items'),
-        // })
-        // ctx.ref<(Expr | Spread<Expr>)[]>('items').reduceRight((right, left) => ({ type: 'app', target: { type: 'var', name: '::', src }, args: [left, right], src }), {
-        //     type: 'var',
-        //     name: '[]',
-        //     src,
-        // })
+        return { type: 'array', src, items: ctx.ref<(Expr | Spread<Expr>)[]>('items') };
     }),
     // 'expr table': tx(
     //     group(

@@ -29,8 +29,8 @@ export const builtinEnv = () => {
     builtinEnv.scope['index'] = generic(['t'], tfns([tapp(tcon('Array'), t), tint], t, builtinSrc));
     builtinEnv.scope['push'] = generic(['t'], tfns([tapp(tcon('Array'), t), t], tcon('void'), builtinSrc));
     builtinEnv.scope['concat'] = generic(['t'], tfns([tapp(tcon('Array'), t), tapp(tcon('Array'), t)], tapp(tcon('Array'), t), builtinSrc));
-    builtinEnv.scope['[]'] = generic(['t'], tapp(tcon('Array'), t));
-    builtinEnv.scope['::'] = generic(['t'], tfns([t, tapp(tcon('Array'), t)], tapp(tcon('Array'), t), builtinSrc));
+    // builtinEnv.scope['[]'] = generic(['t'], tapp(tcon('Array'), t));
+    // builtinEnv.scope['::'] = generic(['t'], tfns([t, tapp(tcon('Array'), t)], tapp(tcon('Array'), t), builtinSrc));
     builtinEnv.scope['void'] = concrete({ type: 'con', name: 'void', src: builtinSrc });
     builtinEnv.scope['+'] = concrete(tfns([tint, tint], tint, builtinSrc));
     builtinEnv.scope['+='] = concrete(tfns([tint, tint], tint, builtinSrc));
@@ -64,7 +64,7 @@ export type Expr =
     | Block
     | { type: 'if'; cond: Expr; yes: Block; no?: Expr; src: Src }
     | { type: 'match'; target: Expr; cases: { pat: Pat; body: Expr }[]; src: Src }
-    // | { type: 'Array'; items: (Expr | Spread<Expr>)[]; src: Src }
+    | { type: 'array'; items: (Expr | Spread<Expr>)[]; src: Src }
     | { type: 'prim'; prim: Prim; src: Src }
     | { type: 'var'; name: string; src: Src }
     | { type: 'str'; value: string; src: Src }
@@ -255,6 +255,7 @@ export type Event =
 export type State = { nextId: number; subst: Subst; events: Event[]; tvarMeta: Record<string, TvarMeta>; latestScope?: Tenv['scope'] };
 
 type TvarMeta =
+    | { type: 'array-item'; src: Src }
     | { type: 'free'; prev: string }
     | { type: 'return-any'; src: Src }
     | {
@@ -504,6 +505,24 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             stackBreak(`primitive constant`);
             stackPop();
             return t;
+        case 'array': {
+            let t = newTypeVar({ type: 'array-item', src: expr.src }, expr.src);
+            let at: Type = { type: 'app', args: [t], src: expr.src, target: { type: 'con', name: 'Array', src: expr.src } };
+            stackPush(expr.src, '[', ...commas(expr.items.map(() => hole())), '] -> ', typ(at));
+            stackBreak(`array literal with ${expr.items.length} ${n(expr.items.length, 'item', 'items')}`);
+            for (let item of expr.items) {
+                stackReplace(expr.src, '[', ...commas(expr.items.map((it) => hole(it === item))), '] -> ', typ(at));
+                if (item.type === 'spread') {
+                    const v = inferExpr(tenv, item.inner);
+                    unify(gtypeApply(at), v, item.src, 'array type', 'inferred spread');
+                } else {
+                    const v = inferExpr(tenv, item);
+                    unify(gtypeApply(t), v, item.src, 'array item type', 'inferred item');
+                }
+            }
+            stackPop();
+            return gtypeApply(at);
+        }
         case 'var':
             const got = tenv.scope[expr.name];
             if (!got) throw new Error(`variable not found in scope ${expr.name}`);

@@ -2,12 +2,14 @@
 Ok I think the walk through looks great.
 
 QUESTION: what things can I remove to make it simpler?
+- [x] so actually the array :: dealio is much more confusing than just having an array literal thing.
+  so I should probably do that.
 - [ ] obviously the 'early return' shenanigans. BUT I kinda want it, because it shows that we can be very typescript-looking?
   - another option is to ditch the 'blocks have values' thing. honestly that might be better, for the moment.
     could have a config option or something.
 - [ ] the '.attributes is a function call' thing is ... a little weird.
-- [ ] so actually the array :: dealio is much more confusing than just having an array literal thing.
-  so I should probably do that.
+- [ ] the "early return" type should be shown on the left hand side, in the `(): X => ...` position.
+- [ ] the for loop needs ; separators instead of , in order to be valid typescript.
 
 ##
 

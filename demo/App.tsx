@@ -45,7 +45,8 @@ if (arr[i] <= pivot) {
     rightArr.push(arr[i])
 }
 }
-return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
+return [
+...quicksort(leftArr), pivot, ...quicksort(rightArr)]
 }`,
     Fibbonacci: `let fib = (n) => {
 if (n <= 1) {return 1}
@@ -542,7 +543,7 @@ export const Example = ({ text }: { text: string }) => {
                 </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, fontFamily: 'Jet Brains' }}>
+                <div style={{ minWidth: 400, marginRight: 16, fontFamily: 'Jet Brains' }}>
                     {cst.roots.map((root) => (
                         <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
                     ))}
@@ -615,7 +616,7 @@ const Sidebar = ({
         });
     });
     return (
-        <div style={{ width: 500 }}>
+        <div style={{ width: 500, marginRight: 8 }}>
             <ShowStacks subst={smap} stack={stack} hv={highlightVars} onClick={(name) => onClick({ type: 'var', name })} />
             {/* {latest ? <RenderEvent event={latest} /> : 'NOEV'} */}
             {/* <pre>{JSON.stringify(variables, null, 2)}</pre> */}
