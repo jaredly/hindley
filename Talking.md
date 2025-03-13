@@ -10,7 +10,7 @@ You can see we have a let statement and an arrow function, but the first thing t
 
 Now we have an arrow function, and we need to create a type variable for the argument `arr`; again, we don't know anything about it yet, but as the algorithm goes along, we'll unify this type variable with whatever type this variable gets *used as*.
 
-And here right away we have `arr` being used; getting the `length` of this variable means it must be an `Array`, although we don't know anything about the context. No matter, we have another type variable for that.
+And here right away we have `arr` being used; getting the `length` of this variable means it must be an `Array`, although we don't know anything about the contents. No matter, we have another type variable for that.
 
 This `return` statement gives us our first information about what the return value of the function is; it's whatever `arr` is! We still don't know the type of the contents of the array, so we still have the type variable `f` there.
 
@@ -21,6 +21,8 @@ When we get down to line [x] and line [y], we determine that both `leftArr` and 
 
 It's this recursive usage of `quicksort` that first nails down our type variable `a`, and the fact that the result is `...spread` into an array with the integer `pivot` means the return value must be an array of integers. Which, at the end of it all, agrees with our return statement up on line [3].
 
+
+[that's 2 minutes! not too bad.]
 
 
 ----

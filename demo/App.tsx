@@ -153,8 +153,10 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                 }
             >
                 {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
-                {num ? <Num n={num} /> : null}
-                <span style={{ background: bgc }}>{children}</span>
+                <span style={{ background: bgc }}>
+                    <span style={{ position: 'relative' }}>{num ? <Num n={num} small /> : null}</span>
+                    {children}
+                </span>
                 {t ? (
                     <span
                         style={{
@@ -582,19 +584,47 @@ export const Example = ({ text }: { text: string }) => {
 
 const srcKey = (src: Src) => (src.right ? `${src.left}:${src.right}` : src.left);
 
-export const Num = ({ n }: { n: number }) => (
+const numColor = 'rgb(255, 170, 170)';
+export const Num = ({ n, small }: { n: number; small?: boolean }) => (
     <span
-        style={{
-            padding: '0px 6px',
-            backgroundColor: '#faa',
-            color: 'black',
-            fontFamily: 'Lora',
-            fontWeight: 'bold',
-            // fontSize: 12,
-            borderRadius: '50%',
-            marginRight: 8,
-            // display: 'inline-block',
-        }}
+        style={
+            small
+                ? {
+                      // backgroundColor: '#faa',
+                      // color: 'black',
+                      // fontFamily: 'Lora',
+                      // fontSize: 8,
+                      // width: 10,
+                      // marginLeft: -10,
+                      // marginTop: -10,
+
+                      // backgroundColor: 'rgb(255, 170, 170)',
+                      textShadow: `1px 1px 2px ${numColor}, -1px -1px 2px ${numColor}, 1px -1px 2px ${numColor}, -1px 1px 2px ${numColor}`,
+                      color: 'black',
+                      fontWeight: 'bold',
+                      fontFamily: 'Lora',
+                      // fontSize: '8px',
+                      width: '12px',
+                      marginLeft: '-12px',
+                      display: 'inline-block',
+                      position: 'absolute',
+                      top: '-10px',
+                      textAlign: 'center',
+                      borderRadius: '50%',
+                      left: '2px',
+                  }
+                : {
+                      padding: '0px 6px',
+                      backgroundColor: '#faa',
+                      color: 'black',
+                      fontFamily: 'Lora',
+                      fontWeight: 'bold',
+                      // fontSize: 12,
+                      borderRadius: '50%',
+                      marginRight: 8,
+                      // display: 'inline-block',
+                  }
+        }
     >
         {n}
     </span>
