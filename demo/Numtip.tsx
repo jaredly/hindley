@@ -12,7 +12,7 @@ export const Numtip = ({ n, inline, final }: { n: number; inline?: boolean; fina
                 inline
                     ? {
                           position: 'absolute',
-                          opacity: final === false ? 0.5 : 1,
+                          opacity: final === false ? 0.3 : 1,
                           top: -32,
                           left: -16,
                       }

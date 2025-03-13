@@ -115,7 +115,7 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
     const t = ctx.byLoc[id];
     // const freeVbls = t ? typeFree(t) : [];
     // const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
-    const bgc = ctx.highlight.includes(id) ? '#700' : undefined;
+    const hlstyle = ctx.highlight.includes(id) ? { background: colors.accentLightRgba, outline: `1px solid ${colors.accent}` } : undefined;
     const num = ctx.stackSrc[id];
     return (
         <span
@@ -155,7 +155,7 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
                 }
             >
                 {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
-                <span style={{ background: bgc }}>
+                <span style={{ ...hlstyle, borderRadius: 4 }}>
                     <span style={{ position: 'relative' }}>{num ? <Numtip inline n={num.num} final={num.final} /> : null}</span>
                     {children}
                 </span>
@@ -425,11 +425,12 @@ export const Example = ({ text }: { text: string }) => {
     // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
     const allLocs: string[] = [];
 
+    const srcLocs = (src: Src) => (src.right ? [`${src.left}:${src.right}`] : [src.left]);
     // const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right).concat([`${src.left}:${src.right}`]) : [src.left]);
-    // const last = stack.stack[stack.stack.length - 1];
-    // if (last.type === 'unify') {
-    //     allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
-    // }
+    const last = stack.stack[stack.stack.length - 1];
+    if (last.type === 'unify') {
+        allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
+    }
 
     const ctx: Ctx = {
         stackSrc,

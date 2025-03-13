@@ -5,6 +5,8 @@ import { interleave } from './interleave';
 
 export const colors = {
     accent: '#aaf',
+    accentLight: '#aaf',
+    accentLightRgba: 'rgba(170, 170, 255, 0.3)',
     punct: '#555',
     vbl: '#afa',
     con: '#aaf',
