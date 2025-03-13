@@ -480,16 +480,23 @@ export const Example = ({ text }: { text: string }) => {
         <div style={{ margin: 32 }}>
             Hindley Milner visualization
             <div style={{ marginBottom: 32, marginTop: 8 }}>
-                <input type="range" min="0" style={{ marginRight: 16 }} max={breaks - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
-                <span style={{ display: 'inline-block', width: '3em' }}>
-                    {at}/{breaks - 1}
-                </span>
                 <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.max(0, at - 1))}>
                     ⬅️
                 </button>
                 <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.min(at + 1, breaks - 1))}>
                     ➡️
                 </button>
+                <input
+                    type="range"
+                    min="0"
+                    style={{ marginLeft: 8, marginRight: 16 }}
+                    max={breaks - 1}
+                    value={at}
+                    onChange={(evt) => setAt(+evt.target.value)}
+                />
+                <span style={{ display: 'inline-block', width: '5em' }}>
+                    {at}/{breaks - 1}
+                </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
                 <div style={{ width: 530, minWidth: 530, marginRight: 16, marginLeft: 24, fontFamily: 'Jet Brains' }}>

@@ -497,7 +497,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                     '<',
                     ...got.vars.map((name) => typ({ type: 'var', name, src: expr.src }, true)),
                     '>',
-                    typ(got.body, true)
+                    typ(got.body, true),
                 );
             } else {
                 stackPush(expr.src, kwd(expr.name), ' -> ', typ(got.body));
@@ -562,7 +562,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             return tfns(
                 args.map((arg) => typeApply(globalState.subst, arg)),
                 typeApply(globalState.subst, returnVar),
-                expr.src
+                expr.src,
                 // bodyType.value ?? bodyType.return ?? { type: 'con', name: 'void' },
             );
         }
@@ -589,7 +589,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 '(',
                 ...commas(expr.args.map(() => hole())),
                 ') -> ',
-                typ(resultVar)
+                typ(resultVar),
             );
             stackBreak(`function call with ${expr.args.length} ${n(expr.args.length, 'argument', 'arguments')}`);
 
@@ -621,7 +621,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 tfns(args, resultVar, expr.src),
                 expr.src,
                 `function being called`,
-                `arguments and result variable`
+                `arguments and result variable`,
             );
             stackPop();
             return typeApply(globalState.subst, resultVar);
@@ -655,7 +655,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 ') {',
                 hole(),
                 '}',
-                ...(expr.no ? [' else {', hole(), ')'] : [])
+                ...(expr.no ? [' else {', hole(), ')'] : []),
             );
             stackBreak('if conditional');
 
@@ -667,7 +667,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 ') {',
                 hole(true),
                 '}',
-                ...(expr.no ? [' else {', hole(), ')'] : [])
+                ...(expr.no ? [' else {', hole(), ')'] : []),
             );
             const one = inferExpr(tenv, expr.yes);
             stackReplace(
@@ -678,7 +678,7 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 ') {',
                 typ(gtypeApply(one)),
                 '}',
-                ...(expr.no ? [' else {', hole(), ')'] : [])
+                ...(expr.no ? [' else {', hole(), ')'] : []),
             );
             stackBreak('if yes');
 
@@ -698,10 +698,10 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 `{`,
                 ...commas(
                     expr.stmts.map((s) => hole()),
-                    '; '
+                    '; ',
                 ),
                 '} -> ',
-                hole()
+                hole(),
             );
             stackBreak(`block with ${expr.stmts.length} ${n(expr.stmts.length, 'statement', 'statements')}`);
             let scope = {};
@@ -714,10 +714,10 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                     `{`,
                     ...commas(
                         expr.stmts.map((s, n) => hole(n === i)),
-                        '; '
+                        '; ',
                     ),
                     '} -> ',
-                    hole()
+                    hole(),
                 );
                 const applied = tenvApply(globalState.subst, tenv);
                 const res = inferStmt({ ...applied, scope: { ...applied.scope, ...scope } }, inner);
@@ -732,10 +732,10 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
                 `{`,
                 ...commas(
                     expr.stmts.map((s) => hole()),
-                    '; '
+                    '; ',
                 ),
                 '} -> ',
-                typ(value!)
+                typ(value!),
             );
             stackBreak(`block result type`);
             stackPop();
@@ -798,7 +798,7 @@ const inferPattern = (tenv: Tenv, pat: Pat): [Type, Tenv['scope']] => {
                 ...(tenv.constructors[pat.name].free.length
                     ? ['<', ...commas(tenv.constructors[pat.name].free.map((name) => typ({ type: 'var', name, src: pat.src }))), '>']
                     : []),
-                typ({ type: 'fn', args: tenv.constructors[pat.name].args, result: tenv.constructors[pat.name].result, src: pat.src })
+                typ({ type: 'fn', args: tenv.constructors[pat.name].args, result: tenv.constructors[pat.name].result, src: pat.src }),
             );
             stackBreak('Type constructor lookup');
             let [cargs, cres] = instantiateTcon(tenv, pat.name, pat.src);
