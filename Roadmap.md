@@ -18,6 +18,10 @@ How can I reduce the visual jumping around?
   - I should highlight the "final" number in a different color, so it's more obvious where we are.
 - [x] also reserve a spot for inferrred variables `: _`
 
+- [ ] LINE NUMBERS
+  - ok so we should be able to know when we make a new line
+  - and we can pretend that my linebreak after the type of the thing doesn't exist
+
 ##
 
 NAVIGATION OK FOLKS

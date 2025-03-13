@@ -25,6 +25,7 @@ import { colors, RenderScheme, RenderType } from './RenderType';
 import { interleave } from './interleave';
 import { ShowStacks } from './ShowText';
 import { Numtip } from './Numtip';
+import { LineManager, LineNumber, RenderNode } from './RenderNode';
 
 const examples = {
     'Function & Pattern': `(one, (two, three)) => one + three`,
@@ -74,7 +75,7 @@ export const closer = { round: ')', square: ']', curly: '}', angle: '>' };
 export const braceColor = 'rgb(100, 200, 200)';
 export const braceColorHl = 'rgb(0, 150, 150)';
 
-type Ctx = {
+export type Ctx = {
     onClick(evt: NodeClick): void;
     highlightVars: string[];
     nodes: Nodes;
@@ -86,7 +87,7 @@ type Ctx = {
     multis: Record<string, true>;
 };
 
-const styles = {
+export const styles = {
     decl: { color: '#c879df' },
     ref: { color: 'rgb(103 234 255)' }, //'rgb(255 90 68)' },
     number: { color: '#e6ff00' },
@@ -110,7 +111,7 @@ const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => v
 
 type NodeClick = { type: 'var'; name: string } | { type: 'ref'; loc: string } | { type: 'decl'; loc: string };
 
-const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
+export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
     const t = ctx.byLoc[id];
     // const freeVbls = t ? typeFree(t) : [];
     // const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
@@ -182,97 +183,6 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
             ) : null} */}
         </span>
     );
-};
-
-const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
-    // const ty = t ? typeApply(glob.subst, t) : null;
-    return (
-        <Wrap id={node.loc} ctx={ctx} multiline={node.type === 'list' && node.forceMultiline}>
-            <RenderNode_ node={node} ctx={ctx} />
-        </Wrap>
-    );
-};
-
-const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
-    const meta = ctx.parsed.ctx.meta[node.loc];
-    let style: React.CSSProperties = styles[meta?.kind as 'kwd'];
-    // if (ctx.highlight.includes(node.loc)) {
-    //     style = { ...style };
-    //     style.backgroundColor = '#700';
-    // }
-    switch (node.type) {
-        case 'id':
-            if (meta?.kind === 'decl') {
-                return (
-                    <span style={{ ...style, cursor: 'pointer' }} onClick={() => ctx.onClick({ type: 'decl', loc: node.loc })}>
-                        {node.text}
-                    </span>
-                );
-            }
-            if (meta?.kind === 'ref') {
-                return (
-                    <span style={{ ...style, cursor: 'pointer' }} onClick={() => ctx.onClick({ type: 'ref', loc: node.loc })}>
-                        {node.text}
-                    </span>
-                );
-            }
-            return <span style={style}>{node.text}</span>;
-        case 'text':
-            return (
-                <span style={style}>
-                    "
-                    {node.spans.map((span, i) =>
-                        span.type === 'text' ? (
-                            <span key={i}>{span.text}</span>
-                        ) : (
-                            <span key={span.item}>
-                                {'${'}
-                                <RenderNode node={ctx.nodes[span.item]} ctx={ctx} />
-                                {'}'}
-                            </span>
-                        ),
-                    )}
-                    "
-                </span>
-            );
-        case 'list':
-            if (node.kind === 'smooshed') {
-                const parts = partition(ctx, node.children);
-                return (
-                    <span style={style}>
-                        <RenderGrouped spaced={false} grouped={parts} ctx={ctx} />
-                    </span>
-                );
-            }
-            if (node.kind === 'spaced') {
-                const parts = partition(ctx, node.children);
-                return (
-                    <span style={style}>
-                        <RenderGrouped spaced grouped={parts} ctx={ctx} />
-                    </span>
-                );
-            }
-            const sep = ctx.parsed.ctx.meta[node.loc]?.kind === 'semi-list' || node.kind === 'curly' ? ';' : ',';
-            return (
-                <span style={style}>
-                    <span style={styles.punct}>{opener[node.kind]}</span>
-                    {/* {node.forceMultiline ? <br /> : null} */}
-                    {interleave(
-                        node.children.map((id) => (
-                            <span key={id} style={node.forceMultiline ? { marginLeft: 16, display: 'block' } : undefined}>
-                                <RenderNode key={id} node={ctx.nodes[id]} ctx={ctx} />
-                                {node.forceMultiline ? (node.kind === 'curly' ? null : sep) : null}
-                            </span>
-                        )),
-                        (i) => (node.forceMultiline ? null : <span key={'mid-' + i}>{sep + ' '}</span>),
-                    )}
-                    {/* {node.forceMultiline ? <br /> : null} */}
-                    <span style={styles.punct}>{closer[node.kind]}</span>
-                </span>
-            );
-        case 'table':
-            return <span style={style}>TABLE</span>;
-    }
 };
 
 export type Frame = { stack: OneStack[]; title: string };
@@ -550,6 +460,17 @@ export const Example = ({ text }: { text: string }) => {
         },
     };
 
+    const locsInOrder = useMemo(() => {
+        const inOrder: string[] = [];
+        const handle = (id: string) => {
+            inOrder.push(id);
+            childLocs(cst.nodes[id]).forEach((child) => handle(child));
+            inOrder.push(id + ':after');
+        };
+        cst.roots.forEach(handle);
+        return inOrder;
+    }, [cst]);
+
     return (
         <div style={{ margin: 32 }}>
             Hindley Milner visualization
@@ -564,10 +485,15 @@ export const Example = ({ text }: { text: string }) => {
                 </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
-                <div style={{ minWidth: 400, marginRight: 16, fontFamily: 'Jet Brains' }}>
-                    {cst.roots.map((root) => (
-                        <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
-                    ))}
+                <div style={{ width: 530, marginRight: 16, marginLeft: 24, fontFamily: 'Jet Brains' }}>
+                    <LineManager inOrder={locsInOrder}>
+                        {cst.roots.map((root) => (
+                            <div>
+                                <LineNumber loc={root} />
+                                <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
+                            </div>
+                        ))}
+                    </LineManager>
                 </div>
                 <Sidebar
                     stack={stack}
@@ -715,7 +641,7 @@ const ScopeDebug = ({ scope }: { scope: Tenv['scope'] }) => {
 
 const ungroup = (group: Grouped): string[] => group.children.flatMap((child) => (typeof child === 'string' ? child : ungroup(child)));
 
-const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; spaced: boolean }): ReactElement => {
+export const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; spaced: boolean }): ReactElement => {
     let children: ReactElement[] = grouped.children.map((item, i) =>
         typeof item === 'string' ? (
             <RenderNode key={item} node={ctx.nodes[item]} ctx={ctx} />
@@ -753,7 +679,7 @@ const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; s
 
 type Grouped = { id?: string; end?: string; children: (string | Grouped)[] };
 
-const partition = (ctx: Ctx, children: string[]) => {
+export const partition = (ctx: Ctx, children: string[]) => {
     // const groups: Grouped = {children: []}
     const stack: Grouped[] = [{ children: [] }];
     for (let i = 0; i < children.length; i++) {
