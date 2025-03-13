@@ -1,7 +1,7 @@
 import React from 'react';
 import { colors } from './RenderType';
 
-export const Numtip = ({ n, inline }: { n: number; inline?: boolean }) => {
+export const Numtip = ({ n, inline, final }: { n: number; inline?: boolean; final?: boolean }) => {
     const size = 10;
     return (
         <svg
@@ -12,6 +12,7 @@ export const Numtip = ({ n, inline }: { n: number; inline?: boolean }) => {
                 inline
                     ? {
                           position: 'absolute',
+                          opacity: final === false ? 0.5 : 1,
                           top: -32,
                           left: -16,
                       }

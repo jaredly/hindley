@@ -80,7 +80,7 @@ export type Ctx = {
     highlightVars: string[];
     nodes: Nodes;
     highlight: string[];
-    stackSrc: Record<string, number>;
+    stackSrc: Record<string, { num: number; final: boolean }>;
     parsed: ParseResult<Stmt>;
     byLoc: Record<string, false | Type>;
     spans: Record<string, string[]>;
@@ -156,7 +156,7 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
             >
                 {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
                 <span style={{ background: bgc }}>
-                    <span style={{ position: 'relative' }}>{num ? <Numtip inline n={num} /> : null}</span>
+                    <span style={{ position: 'relative' }}>{num ? <Numtip inline n={num.num} final={num.final} /> : null}</span>
                     {children}
                 </span>
                 {t != null ? (
@@ -379,12 +379,16 @@ export const Example = ({ text }: { text: string }) => {
     }, [scope]);
 
     // const stack = stacks.length ? stacks[at] : undefined;
-    const stackSrc: Record<string, number> = {};
-    stack?.stack.forEach((item, i) => {
-        if (!stackSrc[srcKey(item.src)]) {
-            stackSrc[srcKey(item.src)] = i + 1;
-        }
-    });
+    const stackSrc: Record<string, { num: number; final: boolean }> = {};
+    if (stack?.stack.length) {
+        let last = stack.stack.length - 1;
+        if (stack.stack[last].type === 'unify') last--;
+        stack?.stack.forEach((item, i) => {
+            // if (!stackSrc[srcKey(item.src)]) {
+            stackSrc[item.src.left] = { num: i + 1, final: i === last };
+            // }
+        });
+    }
 
     const multis = useMemo(() => {
         const multis: Record<string, true> = {};
@@ -476,7 +480,9 @@ export const Example = ({ text }: { text: string }) => {
             Hindley Milner visualization
             <div style={{ marginBottom: 32, marginTop: 8 }}>
                 <input type="range" min="0" style={{ marginRight: 16 }} max={breaks - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
-                <span style={{ display: 'inline-block', width: '2em' }}>{at}</span>
+                <span style={{ display: 'inline-block', width: '3em' }}>
+                    {at}/{breaks - 1}
+                </span>
                 <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.max(0, at - 1))}>
                     ⬅️
                 </button>
@@ -485,7 +491,7 @@ export const Example = ({ text }: { text: string }) => {
                 </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
-                <div style={{ width: 530, marginRight: 16, marginLeft: 24, fontFamily: 'Jet Brains' }}>
+                <div style={{ width: 530, minWidth: 530, marginRight: 16, marginLeft: 24, fontFamily: 'Jet Brains' }}>
                     <LineManager inOrder={locsInOrder}>
                         {cst.roots.map((root) => (
                             <div>
