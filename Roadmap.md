@@ -1,4 +1,13 @@
 
+
+More walkthrough thoughts:
+- [ ] make ... quickpoints? bookmarks. and have the default behavior be going between bookmarks.
+  so I can do the streamlined version
+
+
+
+#
+
 Ok I think the walk through looks great.
 
 QUESTION: what things can I remove to make it simpler?

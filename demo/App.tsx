@@ -32,17 +32,17 @@ const examples = {
     One: `let f = (arg) => {
     let (one, two) = arg; one + 2}`,
     Two: '{\nlet names = [];names.push("Kai")}',
-    Quicksort: `let quicksort = (arr) => {
-if (arr.length <= 1) {
-return arr}
-let pivot = arr[arr.length - 1]
+    Quicksort: `let quicksort = (input) => {
+if (input.length <= 1) {
+return input}
+let pivot = input[input.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < arr.length; i += 1) {
-if (arr[i] <= pivot) {
-    leftArr.push(arr[i])
+for (let i = 0; i < input.length; i += 1) {
+if (input[i] <= pivot) {
+    leftArr.push(input[i])
 } else {
-    rightArr.push(arr[i])
+    rightArr.push(input[i])
 }
 }
 return [
@@ -425,12 +425,13 @@ export const Example = ({ text }: { text: string }) => {
     // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
     const allLocs: string[] = [];
 
-    const srcLocs = (src: Src) => (src.right ? [`${src.left}:${src.right}`] : [src.left]);
     // const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right).concat([`${src.left}:${src.right}`]) : [src.left]);
-    const last = stack.stack[stack.stack.length - 1];
-    if (last.type === 'unify') {
-        allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
-    }
+    const srcLocs = (src: Src) => (src.right ? [`${src.left}:${src.right}`] : [src.left]);
+
+    // const last = stack.stack[stack.stack.length - 1];
+    // if (last.type === 'unify') {
+    //     allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
+    // }
 
     const ctx: Ctx = {
         stackSrc,
