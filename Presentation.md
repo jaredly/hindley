@@ -1,34 +1,24 @@
 
 1) Hello, intro slide
 
-2) A type inference algorithm is this: (left side, no annotations) -> (right side, annotations)
+2) A type inference algorithm is a thing that "infers" the "types" of things: (left side, no annotations) -> (right side, annotations)
 Also gives us type errors, if there's something that can't be reconciled.
 
+[clippy] - "It looks like you're trying to += a string. Would you like me to `rm -rf /`?"
+
 3) TypeScript has an inference algorithm, but it's both more and less powerful;
-more powerful, because it supports a bunch of really complex types, and less
-powerful because it requires you to annotate a bunch of things in order for the algorithm
-to work, whereas Hindley Milner can infer everything.
 
-Table of comparison:
+TS
 
-- TypeScript requires you to annotate an empty array
-- TypeScript requires you to annotate the arguments of every function,
-  and the return types of some functions
-- TypeScript has "untagged unions", e.g. (string | number), whereas
-  Hindley Milner requires tagged unions, e.g. { type: "string", value: string } | { type: "number", value: number }
+Can't infer fn args
+Can't infer empty arrays
 
-| More powerful     | Less powerful |
-|-------------------|---------------|
-| untagged unions   | requires annotations on:
-| (string | number) | - fn args
-| (Person | null)   | - some fn return types
-|-------------------| - some variable declarations
-| Interfaces
-| Classes
-| It's turing complete...
-| [DOOM in TS]
-|-------------------|---------------|
-| 27kloc of checker | 200loc        |
+HM
+
+Can't do `string | number`
+Can't run DOOM
+
+So really it's impossible to say which is better than the other.
 
 4) The basic procedure of Hindley Milner Type Inference is this:
 
