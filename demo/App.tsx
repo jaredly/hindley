@@ -38,7 +38,7 @@ return input}
 let pivot = input[input.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < input.length; i += 1) {
+for (let i = 0; i < input.length; i += "1") {
 if (input[i] <= pivot) {
     leftArr.push(input[i])
 } else {
@@ -94,6 +94,7 @@ export const styles = {
     kwd: { color: '#2852c7' },
     punct: { color: 'gray' },
     unparsed: { color: 'red' },
+    text: { color: 'yellow' },
 };
 
 const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => void, path: string[] = []) => {

@@ -3,6 +3,7 @@ import { colors } from './RenderType';
 
 export const Numtip = ({ n, inline, final }: { n: number; inline?: boolean; final?: boolean }) => {
     const size = 10;
+    if (1) return null;
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"

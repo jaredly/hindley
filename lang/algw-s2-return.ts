@@ -30,7 +30,7 @@ const stmts_spaced: Record<string, Rule<Stmt>> = {
             update: ctx.ref<Expr>('update'),
             body: ctx.ref<Block>('body'),
             src,
-        })
+        }),
     ),
     // throw: tx<Stmt>(seq(kwd('throw'), ref('expr ', 'value')), (ctx, src) => ({
     //     type: 'throw',
@@ -97,7 +97,11 @@ const textString = (spans: TextSpan<string>[]) => {
 const exprs: Record<string, Rule<Expr>> = {
     'expr num': tx(group('value', number), (ctx, src) => ({ type: 'prim', prim: { type: 'int', value: ctx.ref<number>('value') }, src })),
     'expr var': tx(group('id', meta(id(null), 'ref')), (ctx, src) => ({ type: 'var', name: ctx.ref<Id<Loc>>('id').text, src })),
-    'expr text': tx(group('spans', text(ref('expr'))), (ctx, src) => ({ type: 'str', src, value: textString(ctx.ref<TextSpan<string>[]>('spans')) })),
+    'expr text': tx(group('spans', meta(text(ref('expr')), 'text')), (ctx, src) => ({
+        type: 'str',
+        src,
+        value: textString(ctx.ref<TextSpan<string>[]>('spans')),
+    })),
     // ({ type:'str', spans: ctx.ref<TextSpan<Expr>[]>('spans'), src })),
     'expr tuple': tx<Expr>(list('round', group('items', star(ref('expr')))), (ctx, src) => {
         const items = ctx.ref<Expr[]>('items');
@@ -138,7 +142,7 @@ const rules = {
         // tx(ref('block'), (ctx, src),
         // tx(kwd('return'), (_, src) => ({ type: 'return', value: null, src })),
         // kwd('continue'),
-        tx(ref('expr', 'expr'), (ctx, src) => ({ type: 'expr', expr: ctx.ref<Expr>('expr'), src }))
+        tx(ref('expr', 'expr'), (ctx, src) => ({ type: 'expr', expr: ctx.ref<Expr>('expr'), src })),
     ),
     pat: or<Pat>(
         tx(kwd('_'), (ctx, src) => ({ type: 'any', src })),
@@ -168,7 +172,7 @@ const rules = {
                 args: [left, right],
                 src,
             }));
-        })
+        }),
     ),
     comment: list('smooshed', seq(kwd('//', 'comment'), { type: 'any' })),
     block: tx<Block>(
@@ -179,10 +183,10 @@ const rules = {
                 star(
                     or(
                         tx(list({ type: 'plain' }, star({ type: 'any' })), (_, __) => true),
-                        ref('stmt')
-                    )
-                )
-            )
+                        ref('stmt'),
+                    ),
+                ),
+            ),
         ),
         (ctx, src) => {
             // let result = null as null | Expr;
@@ -205,7 +209,7 @@ const rules = {
             // }
             // return result ?? { type: 'var', name: 'empty-block', src };
             return { type: 'block', stmts: ctx.ref<Stmt[]>('contents'), src };
-        }
+        },
     ),
     ...stmts_spaced,
     'expr..': tx<Expr>(
@@ -229,12 +233,12 @@ const rules = {
                             type: 'call',
                             items: ctx.ref<Expr[]>('items'),
                             src,
-                        }))
-                    )
-                )
-            )
+                        })),
+                    ),
+                ),
+            ),
         ),
-        (ctx, src) => parseSmoosh(ctx.ref<Expr>('base'), ctx.ref<Suffix[]>('suffixes'), src)
+        (ctx, src) => parseSmoosh(ctx.ref<Expr>('base'), ctx.ref<Suffix[]>('suffixes'), src),
     ),
     expr: or(...Object.keys(exprs).map((name) => ref(name)), list('spaced', ref('expr ')), ref('block')),
     spread: tx<Spread<Expr>>(list('smooshed', seq(kwd('...'), ref('expr..', 'expr'))), (ctx, src) => ({
@@ -252,7 +256,7 @@ const rules = {
             yes: ctx.ref<Block>('yes'),
             no: ctx.ref<undefined | Expr>('no'),
             src,
-        })
+        }),
     ),
     'expr ': or(
         tx<Expr>(
@@ -262,7 +266,7 @@ const rules = {
                 args: ctx.ref<Pat[]>('args'),
                 body: ctx.ref<Expr>('body'),
                 src,
-            })
+            }),
         ),
         ref('if'),
 
@@ -274,16 +278,16 @@ const rules = {
                     'cases',
                     table(
                         'curly',
-                        tx(seq(ref('pat', 'pat'), ref('block', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Block>('body') }))
-                    )
-                )
+                        tx(seq(ref('pat', 'pat'), ref('block', 'body')), (ctx, src) => ({ pat: ctx.ref<Pat>('pat'), body: ctx.ref<Block>('body') })),
+                    ),
+                ),
             ),
             (ctx, src) => ({
                 type: 'match',
                 target: ctx.ref<Expr>('target'),
                 cases: ctx.ref<{ pat: Pat; body: Expr }[]>('cases'),
                 src,
-            })
+            }),
         ),
         tx<Expr>(seq(ref('expr', 'left'), ref('bop', 'op'), ref('expr', 'right')), (ctx, src) => ({
             type: 'app',
@@ -291,7 +295,7 @@ const rules = {
             args: [ctx.ref<Expr>('left'), ctx.ref<Expr>('right')],
             src,
         })),
-        ref('expr')
+        ref('expr'),
     ),
 };
 

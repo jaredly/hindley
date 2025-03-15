@@ -11,6 +11,7 @@ Also gives us type errors, if there's something that can't be reconciled.
 TS
 
 Can't infer fn args
+Can't infer recursive fn return tyeps
 Can't infer empty arrays
 
 HM
