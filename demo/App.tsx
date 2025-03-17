@@ -592,6 +592,8 @@ const Sidebar = ({
 };
 
 const ShowScope = ({ smap, scope, highlightVars, ctx }: { ctx: Ctx; smap: Subst; scope: Tenv['scope']; highlightVars: string[] }) => {
+    const keys = Object.keys(scope);
+    const firstNonBuiltin = useMemo(() => keys.findIndex((k) => !builtinEnv().scope[k]), [scope]);
     return (
         <div
             style={{
@@ -627,20 +629,29 @@ const ShowScope = ({ smap, scope, highlightVars, ctx }: { ctx: Ctx; smap: Subst;
                         minWidth: 200,
                     }}
                 >
-                    {Object.keys(scope)
-                        // .filter((k) => !env.scope[k])
-                        .map((k) => (
-                            <div key={k} style={{ display: 'contents' }}>
-                                <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
-                                <div style={{ textAlign: 'left' }}>
-                                    <RenderScheme
-                                        s={schemeApply(smap, scope[k])}
-                                        highlightVars={highlightVars}
-                                        onClick={(name) => ctx.onClick({ type: 'var', name })}
-                                    />
-                                </div>
+                    {keys.map((k) => (
+                        <div key={k} style={{ display: 'contents' }}>
+                            {k === keys[firstNonBuiltin] ? (
+                                <div
+                                    style={{
+                                        gridColumn: '1/3',
+                                        height: 1,
+                                        backgroundColor: colors.accent,
+                                        marginTop: 8,
+                                        marginBottom: 8,
+                                    }}
+                                ></div>
+                            ) : null}
+                            <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
+                            <div style={{ textAlign: 'left' }}>
+                                <RenderScheme
+                                    s={schemeApply(smap, scope[k])}
+                                    highlightVars={highlightVars}
+                                    onClick={(name) => ctx.onClick({ type: 'var', name })}
+                                />
                             </div>
-                        ))}
+                        </div>
+                    ))}
                 </div>
             )}
         </div>
