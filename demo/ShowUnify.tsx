@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Subst, typeApply } from '../infer/algw/algw-s2-return';
 import { Type } from '../infer/algw/Type';
 import { colors, RenderType } from './RenderType';
@@ -24,10 +24,28 @@ export const ShowUnify = ({
     hv: string[];
     onClick(vname: string): void;
 }) => {
-    hv = Object.keys(subst);
-    if (!first) {
-        one = typeApply(subst, one);
-        two = typeApply(subst, two);
+    const [playByPlay, setPlayByPlay] = useState(null as null | number);
+
+    const keys = Object.keys(subst).sort();
+    if (playByPlay == null) {
+        hv = Object.keys(subst);
+        if (!first) {
+            one = typeApply(subst, one);
+            two = typeApply(subst, two);
+        }
+    } else {
+        hv = [];
+        for (let i = 0; i < keys.length * 2 && i < playByPlay; i++) {
+            const k = keys[(i / 2) | 0];
+            hv = [k];
+            if (i % 2 === 1) {
+                one = typeApply({ [k]: subst[k] }, one);
+                two = typeApply({ [k]: subst[k] }, two);
+            }
+        }
+        if (playByPlay > keys.length * 2) {
+            hv = [];
+        }
     }
 
     return (
@@ -39,6 +57,7 @@ export const ShowUnify = ({
                 gridTemplateColumns: '1fr 1fr',
                 columnGap: 8,
             }}
+            onClick={() => setPlayByPlay(playByPlay == null ? 0 : playByPlay > keys.length * 2 ? null : playByPlay + 1)}
         >
             <div style={{ minWidth: 0, gridColumn: '1/3' }}>{message}</div>
             <div
@@ -77,12 +96,12 @@ export const ShowUnify = ({
                     paddingBottom: 8,
                 }}
             >
-                {Object.entries(subst).map(([key, type]) => (
+                {keys.map((key) => (
                     <div key={key} style={{ display: 'contents' }}>
                         <div />
                         <RenderType t={{ type: 'var', name: key, src: { left: 'unknown' } }} highlightVars={hv} onClick={onClick} />
                         <div>{'->'}</div>
-                        <RenderType t={type} highlightVars={hv} onClick={onClick} />
+                        <RenderType t={subst[key]} highlightVars={hv} onClick={onClick} />
                         <div />
                     </div>
                 ))}

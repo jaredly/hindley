@@ -1,4 +1,11 @@
 
+Show unification play-by-play.
+
+Maybe have it be stateful within the ShowUnify?
+show applying each substitution individually.
+
+#
+
 
 More walkthrough thoughts:
 - [ ] make ... quickpoints? bookmarks. and have the default behavior be going between bookmarks.

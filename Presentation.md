@@ -34,6 +34,12 @@ So really it's impossible to say which is better than the other.
 MATH ALERT if you look at the wikipedia page for Hindley Milner, you'll see these scary math symbols.
 Here's what they mean:
 
+hrmhrmhrm.
+
+- the "Gamma" symbol is the "context" -- it's the mapping of variables to types that we've seen so far.
+- the vertical line with a line to the right and a subscript S is the "substitution" -- it's the list of substitutions we've made so far.
+- the boxy less-than-equal sign means "is more general than"
+
 6) Ok now let's look at a real piece of code: this is the quicksort algorithm:
 
 

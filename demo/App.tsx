@@ -40,7 +40,7 @@ return input}
 let pivot = input[input.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < input.length; i += "1") {
+for (let i = 0; i < input.length; i += 1) {
 if (input[i] <= pivot) {
     leftArr.push(input[i])
 } else {
@@ -512,8 +512,8 @@ export const Example = ({ text }: { text: string }) => {
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
                 <div
                     style={{
-                        width: 530,
-                        minWidth: 530,
+                        width: 540,
+                        minWidth: 540,
                         marginRight: 16,
                         fontFamily: 'Jet Brains',
                         display: 'flex',
