@@ -28,6 +28,8 @@ import { Numtip } from './Numtip';
 import { LineManager, LineNumber, RenderNode } from './RenderNode';
 
 const examples = {
+    X1: `let f = (x) => x(2, true)`,
+    X2: `let f = (x,m,n) => {\nlet z = [x(m,n),m];x(2, true)}`,
     'Function & Pattern': `(one, (two, three)) => one + three`,
     One: `let f = (arg) => {
     let (one, two) = arg; one + 2}`,
@@ -78,6 +80,7 @@ export const braceColorHl = 'rgb(0, 150, 150)';
 export type Ctx = {
     onClick(evt: NodeClick): void;
     highlightVars: string[];
+    blanks: boolean;
     nodes: Nodes;
     highlight: string[];
     stackSrc: Record<string, { num: number; final: boolean }>;
@@ -160,7 +163,7 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
                     <span style={{ position: 'relative' }}>{num ? <Numtip inline n={num.num} final={num.final} /> : null}</span>
                     {children}
                 </span>
-                {t != null ? (
+                {t || (ctx.blanks && t === false) ? (
                     <span
                         style={{
                             // fontSize: '80%',
@@ -229,6 +232,7 @@ const nextIndex = <T,>(arr: T[], f: (t: T) => any, start = 0) => {
 };
 
 export const Example = ({ text }: { text: string }) => {
+    const [blanks, setBlanks] = useState(true);
     const { glob, res, cst, node, parsed } = useMemo(() => {
         const cst = lex(js, text);
         // console.log(JSON.stringify(cst, null, 2));
@@ -440,6 +444,7 @@ export const Example = ({ text }: { text: string }) => {
         multis,
         spans,
         nodes: cst.nodes,
+        blanks,
         parsed,
         byLoc,
         highlightVars,
@@ -499,12 +504,26 @@ export const Example = ({ text }: { text: string }) => {
                 <span style={{ display: 'inline-block', width: '5em' }}>
                     {at}/{breaks - 1}
                 </span>
+                <label>
+                    <input type="checkbox" checked={blanks} onChange={() => setBlanks(!blanks)} />
+                    Show blank types
+                </label>
             </div>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
-                <div style={{ width: 530, minWidth: 530, marginRight: 16, marginLeft: 24, fontFamily: 'Jet Brains' }}>
+                <div
+                    style={{
+                        width: 530,
+                        minWidth: 530,
+                        marginRight: 16,
+                        fontFamily: 'Jet Brains',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                    }}
+                >
                     <LineManager inOrder={locsInOrder}>
                         {cst.roots.map((root) => (
-                            <div>
+                            <div style={{ position: 'relative', padding: 8, paddingLeft: 32 }}>
                                 <LineNumber loc={root} />
                                 <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
                             </div>

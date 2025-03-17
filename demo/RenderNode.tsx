@@ -141,7 +141,7 @@ export const LineNumber = ({ loc }: { loc: string }) => {
             style={{
                 whiteSpace: 'pre',
                 position: 'absolute',
-                left: 24,
+                left: 0,
                 color: colors.accent,
                 fontWeight: 100,
                 // color: 'black',
