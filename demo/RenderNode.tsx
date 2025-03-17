@@ -144,9 +144,10 @@ export const LineNumber = ({ loc }: { loc: string }) => {
                 left: 0,
                 color: colors.accent,
                 fontWeight: 100,
+                borderRight: '1px solid #555',
                 // color: 'black',
                 //
-                padding: '0 4px',
+                padding: '0 8px 0 0',
                 // background: 'rgba(255,255,255,0.5)',
                 // background: 'rgba(255,255,255,0.5)',
             }}

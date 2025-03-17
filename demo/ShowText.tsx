@@ -41,7 +41,19 @@ export const ShowText = ({ text, subst, hv, onClick }: { onClick(vname: string):
     }
 };
 
-export const ShowStacks = ({ stack, subst, hv, onClick }: { onClick(vname: string): void; hv: string[]; subst: Subst; stack?: Frame }) => {
+export const ShowStacks = ({
+    stack,
+    subst,
+    hv,
+    onClick,
+    showTips,
+}: {
+    showTips: boolean;
+    onClick(vname: string): void;
+    hv: string[];
+    subst: Subst;
+    stack?: Frame;
+}) => {
     if (!stack) return null;
     return (
         <div>
@@ -65,7 +77,7 @@ export const ShowStacks = ({ stack, subst, hv, onClick }: { onClick(vname: strin
                     }
                     return (
                         <div key={j} style={{ marginBottom: 10 }}>
-                            <Numtip n={j + 1} />
+                            {showTips ? <Numtip n={j + 1} /> : null}
                             {item.text.map((t, i) => (
                                 <ShowText subst={subst} text={t} key={i} hv={hv} onClick={onClick} />
                             ))}

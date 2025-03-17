@@ -28,7 +28,7 @@ import { Numtip } from './Numtip';
 import { LineManager, LineNumber, RenderNode } from './RenderNode';
 
 const examples = {
-    X1: `let f = (x) => x(2, true)`,
+    X1: `(x) => x(2, true)`,
     X2: `let f = (x,m,n) => {\nlet z = [x(m,n),m];x(2, true)}`,
     'Function & Pattern': `(one, (two, three)) => one + three`,
     One: `let f = (arg) => {
@@ -51,8 +51,19 @@ return [
 ...quicksort(leftArr), pivot, ...quicksort(rightArr)]
 }`,
     Fibbonacci: `let fib = (n) => {
-if (n <= 1) {return 1}
+if (n <= 1) {\nreturn 1}
 return fib(n - 1) + fib(n - 2)
+}`,
+    Fib2: `let fib = (n) => {
+    let fibs = []
+    for (let i = 0; i < n; i += 1) {
+        if (i <= 1) {
+            fibs.unshift(1)
+        } else {
+            fibs.unshift(fibs[0] + fibs[1])
+        }
+    }
+    return fibs[0]
 }`,
     Example: `{
 let example = (value, f) => {
@@ -78,6 +89,7 @@ export const braceColor = 'rgb(100, 200, 200)';
 export const braceColorHl = 'rgb(0, 150, 150)';
 
 export type Ctx = {
+    showTips: boolean;
     onClick(evt: NodeClick): void;
     highlightVars: string[];
     blanks: boolean;
@@ -160,7 +172,7 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
             >
                 {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
                 <span style={{ ...hlstyle, borderRadius: 4 }}>
-                    <span style={{ position: 'relative' }}>{num ? <Numtip inline n={num.num} final={num.final} /> : null}</span>
+                    <span style={{ position: 'relative' }}>{num && ctx.showTips ? <Numtip inline n={num.num} final={num.final} /> : null}</span>
                     {children}
                 </span>
                 {t || (ctx.blanks && t === false) ? (
@@ -199,7 +211,7 @@ export const App = () => {
     const [selected, setSelected] = useState('One' as keyof typeof examples);
 
     return (
-        <div>
+        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, display: 'flex', flexDirection: 'column' }}>
             <div style={{ margin: 8 }}>
                 {Object.keys(examples).map((key) => (
                     <button
@@ -233,6 +245,8 @@ const nextIndex = <T,>(arr: T[], f: (t: T) => any, start = 0) => {
 
 export const Example = ({ text }: { text: string }) => {
     const [blanks, setBlanks] = useState(true);
+    const [showTips, setShowTips] = useState(true);
+
     const { glob, res, cst, node, parsed } = useMemo(() => {
         const cst = lex(js, text);
         // console.log(JSON.stringify(cst, null, 2));
@@ -441,6 +455,7 @@ export const Example = ({ text }: { text: string }) => {
     const ctx: Ctx = {
         stackSrc,
         highlight: allLocs,
+        showTips,
         multis,
         spans,
         nodes: cst.nodes,
@@ -484,66 +499,76 @@ export const Example = ({ text }: { text: string }) => {
     }, [cst]);
 
     return (
-        <div style={{ margin: 32 }}>
-            Hindley Milner visualization
-            <div style={{ marginBottom: 32, marginTop: 8 }}>
-                <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.max(0, at - 1))}>
-                    ⬅️
-                </button>
-                <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.min(at + 1, breaks - 1))}>
-                    ➡️
-                </button>
-                <input
-                    type="range"
-                    min="0"
-                    style={{ marginLeft: 8, marginRight: 16 }}
-                    max={breaks - 1}
-                    value={at}
-                    onChange={(evt) => setAt(+evt.target.value)}
-                />
-                <span style={{ display: 'inline-block', width: '5em' }}>
-                    {at}/{breaks - 1}
-                </span>
-                <label>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ margin: 32 }}>
+                Hindley Milner visualization
+                <div style={{ marginBottom: 32, marginTop: 8 }}>
+                    <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.max(0, at - 1))}>
+                        ⬅️
+                    </button>
+                    <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.min(at + 1, breaks - 1))}>
+                        ➡️
+                    </button>
+                    <input
+                        type="range"
+                        min="0"
+                        style={{ marginLeft: 8, marginRight: 16 }}
+                        max={breaks - 1}
+                        value={at}
+                        onChange={(evt) => setAt(+evt.target.value)}
+                    />
+                    <span style={{ display: 'inline-block', width: '5em' }}>
+                        {at}/{breaks - 1}
+                    </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
+                    <div
+                        style={{
+                            width: 540,
+                            minWidth: 540,
+                            marginRight: 16,
+                            fontFamily: 'Jet Brains',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                        }}
+                    >
+                        <LineManager inOrder={locsInOrder}>
+                            {cst.roots.map((root) => (
+                                <div style={{ position: 'relative', padding: 8, paddingLeft: 40 }}>
+                                    <LineNumber loc={root} />
+                                    <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
+                                </div>
+                            ))}
+                        </LineManager>
+                    </div>
+                    <Sidebar
+                        stack={stack}
+                        showTips={ctx.showTips}
+                        latest={glob.events[at]}
+                        smap={smap}
+                        subst={subst}
+                        scope={scope}
+                        types={byLoc}
+                        nodes={cst.nodes}
+                        highlightVars={highlightVars}
+                        onClick={ctx.onClick}
+                    />
+                    <div>
+                        <ShowScope smap={smap} scope={{ ...relevantBuiltins, ...scopeToShow }} highlightVars={highlightVars} ctx={ctx} />
+                    </div>
+                </div>
+            </div>
+            <div style={{ flex: 1 }} />
+            <div style={{ padding: 32 }}>
+                <label style={{ padding: 8 }}>
                     <input type="checkbox" checked={blanks} onChange={() => setBlanks(!blanks)} />
                     Show blank types
                 </label>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
-                <div
-                    style={{
-                        width: 540,
-                        minWidth: 540,
-                        marginRight: 16,
-                        fontFamily: 'Jet Brains',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                    }}
-                >
-                    <LineManager inOrder={locsInOrder}>
-                        {cst.roots.map((root) => (
-                            <div style={{ position: 'relative', padding: 8, paddingLeft: 32 }}>
-                                <LineNumber loc={root} />
-                                <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
-                            </div>
-                        ))}
-                    </LineManager>
-                </div>
-                <Sidebar
-                    stack={stack}
-                    latest={glob.events[at]}
-                    smap={smap}
-                    subst={subst}
-                    scope={scope}
-                    types={byLoc}
-                    nodes={cst.nodes}
-                    highlightVars={highlightVars}
-                    onClick={ctx.onClick}
-                />
-                <div>
-                    <ShowScope smap={smap} scope={{ ...relevantBuiltins, ...scopeToShow }} highlightVars={highlightVars} ctx={ctx} />
-                </div>
+                <label style={{ padding: 8 }}>
+                    <input type="checkbox" checked={showTips} onChange={() => setShowTips(!showTips)} />
+                    Show Num Tips
+                </label>
             </div>
         </div>
     );
@@ -561,6 +586,7 @@ const Sidebar = ({
     stack,
     highlightVars,
     onClick,
+    showTips,
 }: {
     subst: Subst[];
     highlightVars: string[];
@@ -570,6 +596,7 @@ const Sidebar = ({
     types: Record<string, Type | false>;
     nodes: Nodes;
     latest: Event;
+    showTips: boolean;
     onClick(evt: NodeClick): void;
 }) => {
     const variables: Record<string, number> = {};
@@ -582,7 +609,7 @@ const Sidebar = ({
     });
     return (
         <div style={{ width: 500, marginRight: 8 }}>
-            <ShowStacks subst={smap} stack={stack} hv={highlightVars} onClick={(name) => onClick({ type: 'var', name })} />
+            <ShowStacks showTips={showTips} subst={smap} stack={stack} hv={highlightVars} onClick={(name) => onClick({ type: 'var', name })} />
             {/* {latest ? <RenderEvent event={latest} /> : 'NOEV'} */}
             {/* <pre>{JSON.stringify(variables, null, 2)}</pre> */}
         </div>

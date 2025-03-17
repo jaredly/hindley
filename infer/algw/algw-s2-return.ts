@@ -28,6 +28,7 @@ export const builtinEnv = () => {
     builtinEnv.scope['false'] = concrete({ type: 'con', name: 'bool', src: builtinSrc });
     builtinEnv.scope['length'] = generic(['t'], tfn(tapp(tcon('Array'), t), tint, builtinSrc));
     builtinEnv.scope['index'] = generic(['t'], tfns([tapp(tcon('Array'), t), tint], t, builtinSrc));
+    builtinEnv.scope['unshift'] = generic(['t'], tfns([tapp(tcon('Array'), t), t], tcon('void'), builtinSrc));
     builtinEnv.scope['push'] = generic(['t'], tfns([tapp(tcon('Array'), t), t], tcon('void'), builtinSrc));
     builtinEnv.scope['concat'] = generic(['t'], tfns([tapp(tcon('Array'), t), tapp(tcon('Array'), t)], tapp(tcon('Array'), t), builtinSrc));
     // builtinEnv.scope['[]'] = generic(['t'], tapp(tcon('Array'), t));
