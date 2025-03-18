@@ -208,7 +208,7 @@ const stackPop = () => globalState.events.push({ type: 'stack-pop' });
 const stackBreak = (title: string) => globalState.events.push({ type: 'stack-break', title });
 
 export type Event =
-    | { type: 'unify'; one: Type; two: Type; subst: Subst; src: Src; oneName: string; twoName: string; message?: string }
+    | { type: 'unify'; tmp?: boolean; one: Type; two: Type; subst: Subst; src: Src; oneName: string; twoName: string; message?: string }
     | { type: 'scope'; scope: Tenv['scope'] }
     | { type: 'infer'; src: Src; value: Type }
     | { type: 'new-var'; name: string }
@@ -290,6 +290,12 @@ export const unify = (one: Type, two: Type, src: Src, oneName: string, twoName: 
 };
 
 export const unifyInner = (one: Type, two: Type): Subst => {
+    let recurse = unifyInner;
+    // let recurse = (one: Type, two: Type): Subst => {
+    //     const subst = unifyInner(one, two);
+    //     globalState.events.push({ type: 'unify', tmp: true, one, two, subst, src: one.src, oneName: 'one', twoName: 'two' });
+    //     return subst;
+    // };
     if (one.type === 'var') {
         return varBind(one.name, two);
     }
@@ -306,9 +312,9 @@ export const unifyInner = (one: Type, two: Type): Subst => {
             console.log(typeToString(two));
             throw new Error(`number of args is different: ${one.args.length} vs ${two.args.length}`);
         }
-        let subst = unifyInner(one.result, two.result);
+        let subst = recurse(one.result, two.result);
         for (let i = 0; i < one.args.length; i++) {
-            subst = composeSubst(unifyInner(typeApply(subst, one.args[i]), typeApply(subst, two.args[i])), subst);
+            subst = composeSubst(recurse(typeApply(subst, one.args[i]), typeApply(subst, two.args[i])), subst);
         }
         return subst;
     }
@@ -316,9 +322,9 @@ export const unifyInner = (one: Type, two: Type): Subst => {
         if (one.args.length !== two.args.length) {
             throw new Error(`number of args is different`);
         }
-        let subst = unifyInner(one.target, two.target);
+        let subst = recurse(one.target, two.target);
         for (let i = 0; i < one.args.length; i++) {
-            subst = composeSubst(unifyInner(typeApply(subst, one.args[i]), typeApply(subst, two.args[i])), subst);
+            subst = composeSubst(recurse(typeApply(subst, one.args[i]), typeApply(subst, two.args[i])), subst);
         }
         return subst;
     }
@@ -575,7 +581,10 @@ export const inferExprInner = (tenv: Tenv, expr: Expr): Type => {
             globalState.events.push({ type: 'infer', src: expr.src, value: resultVar });
             const src = expr.src;
 
-            const pre = expr.target.type === 'var' ? [kwd(expr.target.name), ' call '] : [];
+            // if (expr.target.type === 'var') {
+            //     stackPush(src, ``)
+            // }
+            const pre = expr.target.type === 'var' ? ['call to ', kwd(expr.target.name), ' '] : [];
 
             stackPush(src, ...pre, hole(), '(', ...commas(expr.args.map(() => hole())), ') -> ', typ(resultVar));
             stackBreak(`function call with ${expr.args.length} ${n(expr.args.length, 'argument', 'arguments')}`);

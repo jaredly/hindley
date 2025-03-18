@@ -5,8 +5,7 @@ So the basic procedure of Hindley Milner Type Inference is this:
 it should be a function, if it's the first argument to a function, it should be the type of that first argument.
 3) The unification gives us a list of substitutions, which we then apply to everything we've seen so far.
 
-And then it all magically works! If unification fails, then we have a type error. If, at the end of the algorithm,
-we have any type variables left, then we have a generic function.
+And then it all magically works! If unification fails, then we have a type error. If, at the end of the algorithm, we have any type variables left, then we have a generic function.
 
 
 

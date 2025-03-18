@@ -28,6 +28,8 @@ import { Numtip } from './Numtip';
 import { LineManager, LineNumber, RenderNode } from './RenderNode';
 
 const examples = {
+    Un: `{\nlet x = 2\n}`,
+    Multi: `(x, y, z) => {\n(x(2, y), x(z, true))}`,
     X1: `(x) => x(2, true)`,
     X2: `let f = (x,m,n) => {\nlet z = [x(m,n),m];x(2, true)}`,
     'Function & Pattern': `(one, (two, three)) => one + three`,
@@ -368,7 +370,7 @@ export const Example = ({ text }: { text: string }) => {
                     types.push({ src: evt.src, type: evt.value });
                 }
             }
-            if (evt.type === 'unify') {
+            if (evt.type === 'unify' && !evt.tmp) {
                 subst.push(evt.subst);
                 smap = composeSubst(evt.subst, smap);
             }
@@ -524,8 +526,8 @@ export const Example = ({ text }: { text: string }) => {
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
                     <div
                         style={{
-                            width: 540,
-                            minWidth: 540,
+                            width: 460,
+                            minWidth: 460,
                             marginRight: 16,
                             fontFamily: 'Jet Brains',
                             display: 'flex',
