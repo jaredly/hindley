@@ -503,7 +503,7 @@ export const Example = ({ text }: { text: string }) => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div style={{ margin: 32 }}>
-                Hindley Milner visualization
+                Hindley Milner Type Inference Stepping Debugger
                 <div style={{ marginBottom: 32, marginTop: 8 }}>
                     <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.max(0, at - 1))}>
                         ⬅️
