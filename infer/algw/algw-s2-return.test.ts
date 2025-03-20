@@ -2,18 +2,19 @@ import { test, expect } from 'bun:test';
 import { js, lex } from '../../lang/lexer';
 import { fromMap } from '../../lang/nodes';
 import { parser } from '../../lang/algw-s2-return';
-import { builtinEnv, inferExpr, inferStmt, resetState, Scheme, Tenv, tfns, Type, typeToString } from './algw-s2-return';
+import { builtinEnv, inferExpr, inferStmt, resetState, Scheme, Tenv, tfns, typeToString } from './algw-s2-return';
+import { Type } from './Type';
 
 const tests: ([string, string] | [string, string, true])[] = [
     [`10`, `int`],
     [`{let x = 10; x}`, 'int'],
     [`(1, 2)`, '(int, int)'],
     [`{let (a, b) = (2, 3); a}`, 'int'],
-    [`(x) => {let (a, b) = x; a}`, `((b, c)) => b`],
+    [`(x) => {let (a, b) = x; a}`, `((a, f)) => a`],
     [`{let id = (x) => x; (id(2), id(true))}`, `(int, bool)`],
     [`{let a = 2; let a = true; a}`, 'bool'],
     [`"hi"`, 'string'],
-    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => f, c)) => f'],
+    [`(x) => {let (a, _) = x; a(2)}`, '(((int) => a, f)) => a'],
     [
         `(arr) => {
         if (arr.length <= 1) {
@@ -21,9 +22,9 @@ const tests: ([string, string] | [string, string, true])[] = [
         }
         return 5;
     }`,
-        '(array(e)) => int',
+        '(Array(e)) => int',
     ],
-    ['[1,2]', 'array(int)'],
+    ['[1,2]', 'Array(int)'],
     [
         `(a) => {
         if (true) {
@@ -32,7 +33,7 @@ const tests: ([string, string] | [string, string, true])[] = [
             return [1]
          }
         }`,
-        '(int) => array(int)',
+        '(int) => Array(int)',
     ],
     [
         `{
@@ -47,7 +48,7 @@ const tests: ([string, string] | [string, string, true])[] = [
             };
             quicksort
         }`,
-        '(array(int)) => array(int)',
+        '(Array(int)) => Array(int)',
     ],
     // [
     //     `switch (true) {:
@@ -56,15 +57,17 @@ const tests: ([string, string] | [string, string, true])[] = [
     //     :}`,
     //     'int',
     // ],
-    [`(arr) => arr.length`, '(array(c)) => int'],
-    [`(arr) => {return arr.length}`, '(array(c)) => int'],
-    [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(array(c)) => array(c)'],
-    [`for (let i = 0;i < 5;i += 1) {return i}`, 'void'],
+    [`(arr) => arr.length`, '(Array(d)) => int'],
+    [`(arr) => {return arr.length}`, '(Array(e)) => int'],
+    [`(arr) => {let x = arr[arr.length - 1]; return arr}`, '(Array(h)) => Array(h)'],
+    [`for (let i = 0;i < 5;i += 1) {i}`, 'void'],
     // [`(a) => {for (let i = 0;i < 5;i += 1) {return i}}`, 'int'],
-    [`[...[], 10, ...[5]]`, 'array(int)'],
-    [`{let ok = [];ok.push(1);ok}`, 'array(int)'],
-    [`{let ok = [];if (true) {ok.push(1)};ok}`, 'array(int)'],
-    [`{let ok = [];for (ok;true;ok) {ok.push(1)};ok}`, 'array(int)'],
+    [`[...[], 10, ...[5]]`, 'Array(int)'],
+    [`{let ok = [];ok.push(1);ok}`, 'Array(int)'],
+    [`{let ok = [];if (true) {ok.push(1)};ok}`, 'Array(int)'],
+    [`{let ok = [];for (ok;true;ok) {ok.push(1)};ok}`, 'Array(int)'],
+    [`[].push(1)`, 'void'],
+    [`(a) => {if (a) {return 1}}`, 'Incompatible concrete types: void vs int'],
     // ['0 += 1', 'int'],
 ];
 
@@ -85,8 +88,15 @@ tests.forEach(([input, output, only]) => {
         });
         // console.log(parsed.result);
         resetState();
-        const res = inferStmt(env, parsed.result);
-        expect(res.value ? typeToString(res.value) : null).toEqual(output);
+        // console.log(parsed.result);
+        let found;
+        try {
+            const res = inferStmt(env, parsed.result).value;
+            found = res ? typeToString(res) : '';
+        } catch (err) {
+            found = (err as Error).message;
+        }
+        expect(found).toEqual(output);
         // expect(parsed.result).toEqual('');
     });
 });

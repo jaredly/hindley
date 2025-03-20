@@ -1,96 +1,117 @@
-import React, { JSX, ReactElement, useMemo, useState } from 'react';
+import React, { JSX, ReactElement, useEffect, useMemo, useState } from 'react';
 import { js, lex } from '../lang/lexer';
-import { childLocs, fromMap, Node, Nodes, RecNodeT } from '../lang/nodes';
+import { childLocs, fromMap, Id, Node, Nodes, RecNodeT } from '../lang/nodes';
 import { parser, ParseResult } from '../lang/algw-s2-return';
 import {
     builtinEnv,
     composeSubst,
     Event,
-    Expr,
     getGlobalState,
     inferExpr,
     inferStmt,
     resetState,
-    Stmt,
+    schemeApply,
+    StackText,
     Subst,
     Tenv,
-    Type,
     typeApply,
     typeFree,
     typeToString,
 } from '../infer/algw/algw-s2-return';
+import { Expr, Stmt, traverseStmt, Type } from '../infer/algw/Type';
 import { Src } from '../lang/parse-dsl';
+import { RenderEvent } from './RenderEvent';
+import { colors, RenderScheme, RenderType } from './RenderType';
+import { interleave } from './interleave';
+import { ShowStacks } from './ShowText';
+import { Numtip } from './Numtip';
+import { LineManager, LineNumber, RenderNode } from './RenderNode';
 
-const env = builtinEnv();
-const text = `{\nlet quicksort = (arr) => {
-if (arr.length <= 1) {
-return arr}
-let pivot = arr[arr.length - 1]
+const examples = {
+    Un: `{\nlet x = 2\n}`,
+    Multi: `(x, y, z) => {\n(x(2, y), x(z, true))}`,
+    X1: `(x) => x(2, true)`,
+    X2: `let f = (x,m,n) => {\nlet z = [x(m,n),m];x(2, true)}`,
+    'Function & Pattern': `(one, (two, three)) => one + three`,
+    One: `let f = (arg) => {
+    let (one, two) = arg; one + 2}`,
+    Two: '{\nlet names = [];names.push("Kai")}',
+    Quicksort: `let quicksort = (input) => {
+if (input.length <= 1) {
+return input}
+let pivot = input[input.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < arr.length; i += 1) {
-if (arr[i] <= pivot) {
-    leftArr.push(arr[i])
+for (let i = 0; i < input.length; i += 1) {
+if (input[i] <= pivot) {
+    leftArr.push(input[i])
 } else {
-    rightArr.push(arr[i])
+    rightArr.push(input[i])
 }
 }
-return [...quicksort(leftArr), pivot, ...quicksort(rightArr)]
-};quicksort}`;
+return [
+...quicksort(leftArr), pivot, ...quicksort(rightArr)]
+}`,
+    Fibbonacci: `let fib = (n) => {
+if (n <= 1) {\nreturn 1}
+return fib(n - 1) + fib(n - 2)
+}`,
+    Fib2: `let fib = (n) => {
+    let fibs = []
+    for (let i = 0; i < n; i += 1) {
+        if (i <= 1) {
+            fibs.unshift(1)
+        } else {
+            fibs.unshift(fibs[0] + fibs[1])
+        }
+    }
+    return fibs[0]
+}`,
+    Example: `{
+let example = (value, f) => {
+    let things = []
+    if (value > 10) {
+        things.push(f(value))
+    }
+    things
+}
+    example
+}`,
+    Generic: `{
+    let two = (a) => [a, a];
+    (two(1), two(true))
+}`,
+};
+
 // const text = `(x) => {let (a, _) = x; a(2)}`;
-const cst = lex(js, text);
-// console.log(JSON.stringify(cst, null, 2));
-const node = fromMap(cst.roots[0], cst.nodes, (idx) => idx);
-// console.log(JSON.stringify(node, null, 2));
-const parsed = parser.parse(node);
-if (!parsed.result) throw new Error(`not parsed ${text}`);
-// console.log(parsed.result);
-resetState();
-
-console.log(parsed);
-console.log(node);
-
-let res;
-try {
-    res = inferStmt(env, parsed.result);
-} catch (err) {
-    console.log('bad inference', err);
-    res = null;
-}
-
-const glob = getGlobalState();
-
-console.log('res', res);
 
 export const opener = { round: '(', square: '[', curly: '{', angle: '<' };
 export const closer = { round: ')', square: ']', curly: '}', angle: '>' };
 export const braceColor = 'rgb(100, 200, 200)';
 export const braceColorHl = 'rgb(0, 150, 150)';
 
-export const interleave = <T,>(items: T[], sep: (i: number) => T) => {
-    const res: T[] = [];
-    items.forEach((item, i) => {
-        if (i > 0) {
-            res.push(sep(i - 1));
-        }
-        res.push(item);
-    });
-    return res;
-};
-
-type Ctx = {
+export type Ctx = {
+    showTips: boolean;
+    onClick(evt: NodeClick): void;
+    highlightVars: string[];
+    blanks: boolean;
     nodes: Nodes;
-    higlight: string[];
+    highlight: string[];
+    stackSrc: Record<string, { num: number; final: boolean }>;
     parsed: ParseResult<Stmt>;
-    byLoc: Record<string, Type>;
+    byLoc: Record<string, false | Type>;
     spans: Record<string, string[]>;
     multis: Record<string, true>;
 };
 
-const styles = {
-    kwd: { color: 'green' },
+export const styles = {
+    decl: { color: '#c879df' },
+    ref: { color: 'rgb(103 234 255)' }, //'rgb(255 90 68)' },
+    number: { color: '#e6ff00' },
+    kwd: { color: '#2852c7' },
     punct: { color: 'gray' },
     unparsed: { color: 'red' },
+    text: { color: 'yellow' },
 };
 
 const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => void, path: string[] = []) => {
@@ -106,25 +127,31 @@ const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => v
 //     }
 // });
 
-const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
+type NodeClick = { type: 'var'; name: string } | { type: 'ref'; loc: string } | { type: 'decl'; loc: string };
+
+export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
     const t = ctx.byLoc[id];
-    const freeVbls = t ? typeFree(t) : [];
-    const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
+    // const freeVbls = t ? typeFree(t) : [];
+    // const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
+    const hlstyle = ctx.highlight.includes(id) ? { background: colors.accentLightRgba, outline: `1px solid ${colors.accent}` } : undefined;
+    const num = ctx.stackSrc[id];
     return (
         <span
             data-id={id}
             style={{
-                borderBottomWidth: multiline ? 0 : 3,
-                marginBottom: 1,
-                borderColor: color ?? 'transparent',
-                // borderRadius: 4,
-                borderStyle: 'solid',
-                // backgroundColor: 'rgba(255,0,0,0.01)',
+                // marginBottom: 1,
+                // borderBottomWidth: multiline ? 0 : 3,
+                // borderColor: color ?? 'transparent',
+                // borderStyle: 'solid',
+                //
                 display: !multiline ? 'inline-block' : 'inline',
+                // borderRadius: 4,
+                // backgroundColor: 'rgba(255,0,0,0.01)',
+                // backgroundColor: bgc,
                 // alignItems: 'flex-start',
             }}
         >
-            {multiline ? (
+            {/* {multiline ? (
                 <span
                     style={{
                         display: 'inline-block',
@@ -134,8 +161,7 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                 >
                     {'('}
                 </span>
-            ) : null}
-            {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
+            ) : null} */}
             <span
                 style={
                     multiline
@@ -146,9 +172,23 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                           }
                 }
             >
-                {children}
+                {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
+                <span style={{ ...hlstyle, borderRadius: 4 }}>
+                    <span style={{ position: 'relative' }}>{num && ctx.showTips ? <Numtip inline n={num.num} final={num.final} /> : null}</span>
+                    {children}
+                </span>
+                {t || (ctx.blanks && t === false) ? (
+                    <span
+                        style={{
+                            // fontSize: '80%',
+                            color: '#666',
+                        }}
+                    >
+                        : {t ? <RenderType t={t} highlightVars={ctx.highlightVars} onClick={(name) => ctx.onClick({ type: 'var', name })} /> : '_'}
+                    </span>
+                ) : null}
             </span>
-            {multiline ? (
+            {/* {multiline ? (
                 <span
                     style={{
                         display: 'inline-block',
@@ -158,109 +198,218 @@ const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: st
                 >
                     {')'}
                 </span>
-            ) : null}
-            {/* <span
-                style={{
-                    display: multiline ? 'inline' : 'block',
-                    fontSize: '80%',
-                    color: '#666',
-                }}
-            >
-                {t ? typeToString(t) : ''}
-            </span> */}
+            ) : null} */}
         </span>
     );
 };
 
-const RenderNode = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
-    // const ty = t ? typeApply(glob.subst, t) : null;
+export type Frame = { stack: OneStack[]; title: string };
+
+export type OneStack =
+    | { text: StackText[]; src: Src; type: 'line' }
+    | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; oneName: string; twoName: string; message?: string; first?: boolean };
+
+export const App = () => {
+    const [selected, setSelected] = useState('One' as keyof typeof examples);
+
     return (
-        <Wrap id={node.loc} ctx={ctx} multiline={node.type === 'list' && node.forceMultiline}>
-            <RenderNode_ node={node} ctx={ctx} />
-        </Wrap>
+        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ margin: 8 }}>
+                {Object.keys(examples).map((key) => (
+                    <button
+                        style={{
+                            padding: '2px 8px',
+                            background: selected === key ? '#aaa' : 'transparent',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            color: selected === key ? 'black' : undefined,
+                        }}
+                        key={key}
+                        disabled={selected === key}
+                        onClick={() => setSelected(key as keyof typeof examples)}
+                    >
+                        {key}
+                    </button>
+                ))}
+            </div>
+            <Example key={selected} text={examples[selected]} />
+        </div>
     );
 };
 
-const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
-    const meta = ctx.parsed.ctx.meta[node.loc];
-    let style: React.CSSProperties = styles[meta?.kind as 'kwd'];
-    if (ctx.higlight.includes(node.loc)) {
-        if (!style) style = {};
-        style.backgroundColor = '#700';
+const nextIndex = <T,>(arr: T[], f: (t: T) => any, start = 0) => {
+    console.log('starting from', start);
+    for (; start < arr.length; start++) {
+        if (f(arr[start])) return start;
     }
-    switch (node.type) {
-        case 'id':
-            return <span style={style}>{node.text}</span>;
-        case 'text':
-            return (
-                <span style={style}>
-                    "
-                    {node.spans.map((span, i) =>
-                        span.type === 'text' ? (
-                            <span key={i}>{span.text}</span>
-                        ) : (
-                            <span key={span.item}>
-                                {'${'}
-                                <RenderNode node={ctx.nodes[span.item]} ctx={ctx} />
-                                {'}'}
-                            </span>
-                        ),
-                    )}
-                    "
-                </span>
-            );
-        case 'list':
-            if (node.kind === 'smooshed') {
-                const parts = partition(ctx, node.children);
-                return (
-                    <span style={style}>
-                        <RenderGrouped spaced={false} grouped={parts} ctx={ctx} />
-                    </span>
-                );
-            }
-            if (node.kind === 'spaced') {
-                const parts = partition(ctx, node.children);
-                return (
-                    <span style={style}>
-                        <RenderGrouped spaced grouped={parts} ctx={ctx} />
-                    </span>
-                );
-            }
-            return (
-                <span style={style}>
-                    {opener[node.kind]}
-                    {/* {node.forceMultiline ? <br /> : null} */}
-                    {interleave(
-                        node.children.map((id) => (
-                            <span key={id} style={node.forceMultiline ? { marginLeft: 16, display: 'block' } : undefined}>
-                                <RenderNode key={id} node={ctx.nodes[id]} ctx={ctx} />
-                                {node.forceMultiline ? (node.kind === 'curly' ? null : ',') : null}
-                            </span>
-                        )),
-                        (i) => (node.forceMultiline ? null : <span key={'mid-' + i}>{node.kind === 'curly' ? '; ' : ', '}</span>),
-                    )}
-                    {/* {node.forceMultiline ? <br /> : null} */}
-                    {closer[node.kind]}
-                </span>
-            );
-        case 'table':
-            return <span style={style}>TABLE</span>;
-    }
+    return null;
 };
 
-const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-const makeName = (n: number) => {
-    let res = '';
-    while (n >= alphabet.length) {
-        res = alphabet[n % alphabet.length] + res;
-        n = Math.floor(n / alphabet.length);
-    }
-    res = alphabet[n] + res;
-    return res;
-};
+export const Example = ({ text }: { text: string }) => {
+    const [blanks, setBlanks] = useState(true);
+    const [showTips, setShowTips] = useState(true);
 
-export const App = () => {
-    const [at, setAt] = useState((glob.events.length / 2) | 0);
+    const { glob, res, cst, node, parsed } = useMemo(() => {
+        const cst = lex(js, text);
+        // console.log(JSON.stringify(cst, null, 2));
+        const node = fromMap(cst.roots[0], cst.nodes, (idx) => idx);
+        // console.log(JSON.stringify(node, null, 2));
+        const parsed = parser.parse(node);
+        if (!parsed.result) throw new Error(`not parsed ${text}`);
+        // console.log(parsed.result);
+        resetState();
+
+        const env = builtinEnv();
+        const glob = getGlobalState();
+
+        let res;
+        try {
+            res = inferStmt(env, parsed.result);
+        } catch (err) {
+            console.log('bad inference', err);
+            res = null;
+        }
+
+        return { glob, res, cst, node, parsed };
+    }, [text]);
+
+    const [at, setAt] = useState(0);
+
+    const breaks = useMemo(() => stackForEvt(glob.events.length, glob.events), [glob.events]);
+
+    useEffect(() => {
+        const fn = (evt: KeyboardEvent) => {
+            if (window.document.activeElement != document.body) return;
+            if (evt.key === ' ' || evt.key === 'ArrowRight') {
+                setAt((at) => Math.min(at + 1, breaks - 1));
+            }
+            if (evt.key === 'ArrowLeft') {
+                setAt((at) => Math.max(0, at - 1));
+            }
+        };
+        document.addEventListener('keydown', fn);
+        return () => document.removeEventListener('keydown', fn);
+    }, [breaks]);
+
+    const relevantBuiltins = useMemo(() => {
+        // const refs = Object.entries(parsed.ctx.meta)
+        //     .filter(([kwd, v]) => v.kind === 'ref' || v.kind === 'bop' || v.kind === 'attribute')
+        //     .map((k) => cst.nodes[k[0]])
+        //     .filter((n): n is Id<string> => n.type === 'id')
+        //     .map((id) => id.text);
+        const refs: string[] = [];
+        traverseStmt(parsed.result!, {
+            visitExpr(expr) {
+                if (expr.type === 'var') {
+                    refs.push(expr.name);
+                }
+            },
+        });
+        const builtins: Tenv['scope'] = {};
+        const tenv = builtinEnv();
+        refs.forEach((ref) => {
+            if (tenv.scope[ref]) {
+                builtins[ref] = tenv.scope[ref];
+            }
+        });
+
+        return builtins;
+    }, [parsed]);
+
+    const { byLoc, subst, types, scope, smap, stack, highlightVars, activeVbls } = useMemo(() => {
+        const activeVbls: string[] = [];
+        const byLoc: Record<string, Type | false> = {};
+        const subst: Subst[] = [];
+        const types: { src: Src; type: Type }[] = [];
+        let highlightVars: string[] = [];
+        let smap: Subst = {};
+        let scope: Tenv['scope'] = {};
+
+        const stacks: Frame[] = [];
+        const stack: OneStack[] = [];
+        top: for (let i = 0; i <= glob.events.length && at >= stacks.length; i++) {
+            const evt = glob.events[i];
+            switch (evt.type) {
+                case 'stack-push':
+                    stack.push({ text: evt.value, src: evt.src, type: 'line' });
+                    break;
+                case 'stack-pop':
+                    stack.pop();
+                    break;
+                case 'stack-break':
+                    stacks.push({ stack: stack.slice(), title: evt.title });
+                    break;
+                case 'new-var':
+                    activeVbls.push(evt.name);
+                    break;
+                case 'unify':
+                    const has = Object.keys(evt.subst).length;
+                    if (has) {
+                        stack.push({ ...evt, first: true });
+                        stacks.push({ stack: stack.slice(), title: 'Unification result' });
+                        stack.pop();
+                        if (stacks.length > at) {
+                            highlightVars = Object.keys(evt.subst);
+                            break top;
+                        }
+                        stack.push(evt);
+                        stacks.push({ stack: stack.slice(), title: 'Unification result' });
+                        stack.pop();
+                    }
+                    break;
+            }
+            if (evt.type === 'infer') {
+                if (evt.src.right) {
+                    // byLoc[evt.src.left + ':' + evt.src.right] = evt.value;
+                } else {
+                    if (!evt.src.right && (parsed.ctx.meta[evt.src.left]?.kind === 'decl' || parsed.ctx.meta[evt.src.left]?.kind === 'fn-args')) {
+                        byLoc[evt.src.left] = evt.value;
+                    }
+                }
+                if (!evt.src.right && parsed.ctx.meta[evt.src.left]?.kind === 'decl') {
+                    types.push({ src: evt.src, type: evt.value });
+                }
+            }
+            if (evt.type === 'unify' && !evt.tmp) {
+                subst.push(evt.subst);
+                smap = composeSubst(evt.subst, smap);
+            }
+            if (evt.type === 'scope') {
+                scope = evt.scope;
+            }
+        }
+        Object.entries(parsed.ctx.meta).forEach(([loc, meta]) => {
+            if (meta.kind === 'decl' || meta.kind === 'fn-args') {
+                if (!byLoc[loc]) byLoc[loc] = false;
+            }
+        });
+
+        Object.keys(byLoc).forEach((k) => {
+            if (byLoc[k]) byLoc[k] = typeApply(smap, byLoc[k]);
+        });
+        return { byLoc, subst, types, scope, smap, stack: stacks[at], highlightVars, activeVbls };
+    }, [at]);
+
+    const scopeToShow = useMemo(() => {
+        const res: Tenv['scope'] = {};
+        const env = builtinEnv();
+        Object.keys(scope)
+            .filter((k) => !env.scope[k])
+            .forEach((k) => (res[k] = scope[k]));
+        return res;
+    }, [scope]);
+
+    // const stack = stacks.length ? stacks[at] : undefined;
+    const stackSrc: Record<string, { num: number; final: boolean }> = {};
+    if (stack?.stack.length) {
+        let last = stack.stack.length - 1;
+        if (stack.stack[last].type === 'unify') last--;
+        stack?.stack.forEach((item, i) => {
+            // if (!stackSrc[srcKey(item.src)]) {
+            stackSrc[item.src.left] = { num: i + 1, final: i === last };
+            // }
+        });
+    }
 
     const multis = useMemo(() => {
         const multis: Record<string, true> = {};
@@ -284,117 +433,150 @@ export const App = () => {
                 if (!spans[evt.src.left]) spans[evt.src.left] = [];
                 if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
             }
+            if (evt.type === 'stack-push' && evt.src.right) {
+                if (!spans[evt.src.left]) spans[evt.src.left] = [];
+                if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
+            }
         });
 
         return { spans };
     }, []);
 
-    const { byLoc, subst, types, scope, smap } = useMemo(() => {
-        const byLoc: Record<string, Type> = {};
-        const subst: Subst[] = [];
-        const types: { src: Src; type: Type }[] = [];
-        let smap: Subst = {};
-        let scope: Tenv['scope'] = {};
+    // const esrc = eventSrc(glob.events[at]);
+    // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
+    const allLocs: string[] = [];
 
-        for (let i = 0; i <= at; i++) {
-            const evt = glob.events[i];
-            if (evt.type === 'infer') {
-                if (evt.src.right) {
-                    // if (!spans[evt.src.left]) spans[evt.src.left] = [];
-                    // if (!spans[evt.src.left].includes(evt.src.right)) spans[evt.src.left].push(evt.src.right);
-                    byLoc[evt.src.left + ':' + evt.src.right] = evt.value;
-                } else {
-                    byLoc[evt.src.left] = evt.value;
-                }
-                types.push({ src: evt.src, type: evt.value });
-            }
-            if (evt.type === 'unify') {
-                subst.push(evt.subst);
-                smap = composeSubst(evt.subst, smap);
-            }
-            // if (evt.type === 'subst') {
-            //     subst.push({ name: evt.name, type: evt.value });
-            //     Object.keys(smap).forEach((k) => (smap[k] = typeApply({ [evt.name]: evt.value }, smap[k])));
-            //     smap[evt.name] = evt.value;
-            // }
-            if (evt.type === 'scope') {
-                scope = evt.scope;
-            }
-        }
+    // const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right).concat([`${src.left}:${src.right}`]) : [src.left]);
+    const srcLocs = (src: Src) => (src.right ? [`${src.left}:${src.right}`] : [src.left]);
 
-        // subst.forEach((s) => {
-        //     s.type = typeApply(smap, s.type);
-        // });
-        Object.keys(byLoc).forEach((k) => {
-            byLoc[k] = typeApply(smap, byLoc[k]);
-        });
-        return { byLoc, subst, types, scope, smap };
-    }, [at]);
+    // const last = stack.stack[stack.stack.length - 1];
+    // if (last.type === 'unify') {
+    //     allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
+    // }
 
-    const esrc = eventSrc(glob.events[at]);
-    const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
+    const ctx: Ctx = {
+        stackSrc,
+        highlight: allLocs,
+        showTips,
+        multis,
+        spans,
+        nodes: cst.nodes,
+        blanks,
+        parsed,
+        byLoc,
+        highlightVars,
+        onClick(evt) {
+            if (evt.type === 'ref' || evt.type === 'decl') {
+                setAt((at) => {
+                    const nat = nextIndex(
+                        glob.events,
+                        (gevt) => gevt.type === 'infer' && gevt.src.left === evt.loc && !gevt.src.right,
+                        evtForStack(at, glob.events) + 2,
+                    );
+                    if (!nat) return at;
+                    console.log('found it', nat);
+                    const sat = stackForEvt(nat, glob.events);
+                    if (sat !== 0) return sat;
+                    return at;
+                });
+            } else {
+                const nat = nextIndex(glob.events, (gevt) => gevt.type === 'unify' && gevt.subst[evt.name], evtForStack(at, glob.events) + 2);
+                if (!nat) return;
+                const sat = stackForEvt(nat, glob.events);
+                if (sat !== 0) setAt(sat);
+            }
+            console.log('evt', evt);
+        },
+    };
+
+    const locsInOrder = useMemo(() => {
+        const inOrder: string[] = [];
+        const handle = (id: string) => {
+            inOrder.push(id);
+            childLocs(cst.nodes[id]).forEach((child) => handle(child));
+            inOrder.push(id + ':after');
+        };
+        cst.roots.forEach(handle);
+        return inOrder;
+    }, [cst]);
 
     return (
-        <div className="m-2">
-            Hindley Milner visualization
-            <div>
-                <input type="range" min="0" max={glob.events.length - 1} value={at} onChange={(evt) => setAt(+evt.target.value)} />
-                {at}
-            </div>
-            <div>{res?.value ? typeToString(res.value) : 'NO TYPE'} </div>
-            <div style={{ display: 'flex', flexDirection: 'row' }}>
-                <div>
-                    {cst.roots.map((root) => (
-                        <RenderNode key={root} node={cst.nodes[root]} ctx={{ higlight: allLocs, multis, spans, nodes: cst.nodes, parsed, byLoc }} />
-                    ))}
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ margin: 32 }}>
+                Hindley Milner Type Inference Stepping Debugger
+                <div style={{ marginBottom: 32, marginTop: 8 }}>
+                    <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.max(0, at - 1))}>
+                        ⬅️
+                    </button>
+                    <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.min(at + 1, breaks - 1))}>
+                        ➡️
+                    </button>
+                    <input
+                        type="range"
+                        min="0"
+                        style={{ marginLeft: 8, marginRight: 16 }}
+                        max={breaks - 1}
+                        value={at}
+                        onChange={(evt) => setAt(+evt.target.value)}
+                    />
+                    <span style={{ display: 'inline-block', width: '5em' }}>
+                        {at}/{breaks - 1}
+                    </span>
                 </div>
-                {/* <Substs subst={subst} /> */}
-                <Sidebar latest={glob.events[at]} smap={smap} subst={subst} scope={scope} types={byLoc} nodes={cst.nodes} />
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
+                    <div
+                        style={{
+                            width: 460,
+                            minWidth: 460,
+                            marginRight: 16,
+                            fontFamily: 'Jet Brains',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                        }}
+                    >
+                        <LineManager inOrder={locsInOrder}>
+                            {cst.roots.map((root) => (
+                                <div style={{ position: 'relative', padding: 8, paddingLeft: 40 }}>
+                                    <LineNumber loc={root} />
+                                    <RenderNode key={root} node={cst.nodes[root]} ctx={ctx} />
+                                </div>
+                            ))}
+                        </LineManager>
+                    </div>
+                    <Sidebar
+                        stack={stack}
+                        showTips={ctx.showTips}
+                        latest={glob.events[at]}
+                        smap={smap}
+                        subst={subst}
+                        scope={scope}
+                        types={byLoc}
+                        nodes={cst.nodes}
+                        highlightVars={highlightVars}
+                        onClick={ctx.onClick}
+                    />
+                    <div>
+                        <ShowScope smap={smap} scope={{ ...relevantBuiltins, ...scopeToShow }} highlightVars={highlightVars} ctx={ctx} />
+                    </div>
+                </div>
             </div>
-            {/* <ScopeDebug scope={scope} /> */}
-            {/* <div style={{ whiteSpace: 'pre' }}>{JSON.stringify(parsed.result, null, 2)}</div> */}
-            {/* <div style={{ whiteSpace: 'pre' }}>{types.map((t) => `${JSON.stringify(t.src)} : ${typeToString(t.type)}`).join('\n')}</div> */}
+            <div style={{ flex: 1 }} />
+            <div style={{ padding: 32 }}>
+                <label style={{ padding: 8 }}>
+                    <input type="checkbox" checked={blanks} onChange={() => setBlanks(!blanks)} />
+                    Show blank types
+                </label>
+                <label style={{ padding: 8 }}>
+                    <input type="checkbox" checked={showTips} onChange={() => setShowTips(!showTips)} />
+                    Show Num Tips
+                </label>
+            </div>
         </div>
     );
 };
 
-const RenderEvent = ({ event }: { event: Event }) => {
-    switch (event.type) {
-        case 'new-var':
-            return (
-                <span>
-                    New Variable {event.name}
-                    <div>{JSON.stringify(getGlobalState().tvarMeta[event.name])}</div>
-                </span>
-            );
-        case 'infer':
-            return (
-                <span>
-                    Inferred {JSON.stringify(event.src)} <RenderType t={event.value} />
-                </span>
-            );
-        case 'unify':
-            return (
-                <div>
-                    <div>
-                        <RenderType t={event.one} />
-                    </div>
-                    <div>
-                        <RenderType t={event.two} />
-                    </div>
-                    <div>
-                        {Object.entries(event.subst).map(([key, type]) => (
-                            <div key={key}>
-                                {key} : <RenderType t={type} />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        case 'scope':
-            return <span>scope</span>;
-    }
-};
+const srcKey = (src: Src) => (src.right ? `${src.left}:${src.right}` : src.left);
 
 const Sidebar = ({
     subst,
@@ -403,42 +585,106 @@ const Sidebar = ({
     types,
     nodes,
     latest,
+    stack,
+    highlightVars,
+    onClick,
+    showTips,
 }: {
     subst: Subst[];
+    highlightVars: string[];
+    stack?: Frame;
     smap: Subst;
     scope: Tenv['scope'];
-    types: Record<string, Type>;
+    types: Record<string, Type | false>;
     nodes: Nodes;
     latest: Event;
+    showTips: boolean;
+    onClick(evt: NodeClick): void;
 }) => {
     const variables: Record<string, number> = {};
     Object.values(types).forEach((t) => {
+        if (!t) return;
         const free = typeFree(t);
         free.forEach((name) => {
             variables[name] = (variables[name] || 0) + 1;
         });
     });
     return (
-        <div>
-            <div style={{ display: 'grid', marginBottom: 16, gridTemplateColumns: 'max-content max-content', columnGap: 12 }}>
-                {Object.keys(scope)
-                    .filter((k) => !env.scope[k])
-                    .map((k) => (
-                        <div key={k} style={{ display: 'contents' }}>
-                            <div>{k}</div>
-                            <div>
-                                {scope[k].vars.length ? `<${scope[k].vars.join(', ')}>` : ''}
-                                <RenderType t={typeApply(smap, scope[k].body)} />
-                            </div>
-                        </div>
-                    ))}
-            </div>
-            {latest ? <RenderEvent event={latest} /> : 'NOEV'}
-            <pre>{JSON.stringify(variables, null, 2)}</pre>
+        <div style={{ width: 500, marginRight: 8 }}>
+            <ShowStacks showTips={showTips} subst={smap} stack={stack} hv={highlightVars} onClick={(name) => onClick({ type: 'var', name })} />
+            {/* {latest ? <RenderEvent event={latest} /> : 'NOEV'} */}
+            {/* <pre>{JSON.stringify(variables, null, 2)}</pre> */}
         </div>
     );
     // First: variables in scope, minus builtins
     // Second: type annotations with type variables
+};
+
+const ShowScope = ({ smap, scope, highlightVars, ctx }: { ctx: Ctx; smap: Subst; scope: Tenv['scope']; highlightVars: string[] }) => {
+    const keys = Object.keys(scope);
+    const firstNonBuiltin = useMemo(() => keys.findIndex((k) => !builtinEnv().scope[k]), [scope]);
+    return (
+        <div
+            style={{
+                border: `1px solid ${colors.accent}`,
+                textAlign: 'center',
+                width: 400,
+            }}
+        >
+            <div
+                style={{ backgroundColor: colors.accent, color: 'black', gridColumn: '1/3', marginBottom: 8, fontFamily: 'Lora', fontWeight: 'bold' }}
+            >
+                Scope
+            </div>
+            {!Object.keys(scope).length ? (
+                <div
+                    style={{
+                        marginTop: 24,
+                        marginBottom: 16,
+                    }}
+                >
+                    No variables defined
+                </div>
+            ) : (
+                <div
+                    style={{
+                        display: 'grid',
+                        marginTop: 24,
+                        marginBottom: 16,
+                        gridTemplateColumns: 'max-content 1fr',
+                        gridTemplateRows: 'max-content',
+                        fontFamily: 'Jet Brains',
+                        columnGap: 12,
+                        minWidth: 200,
+                    }}
+                >
+                    {keys.map((k) => (
+                        <div key={k} style={{ display: 'contents' }}>
+                            {k === keys[firstNonBuiltin] ? (
+                                <div
+                                    style={{
+                                        gridColumn: '1/3',
+                                        height: 1,
+                                        backgroundColor: colors.accent,
+                                        marginTop: 8,
+                                        marginBottom: 8,
+                                    }}
+                                ></div>
+                            ) : null}
+                            <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
+                            <div style={{ textAlign: 'left' }}>
+                                <RenderScheme
+                                    s={schemeApply(smap, scope[k])}
+                                    highlightVars={highlightVars}
+                                    onClick={(name) => ctx.onClick({ type: 'var', name })}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 };
 
 const Substs = ({ subst }: { subst: { name: string; type: Type }[] }) => {
@@ -470,7 +716,7 @@ const ScopeDebug = ({ scope }: { scope: Tenv['scope'] }) => {
 
 const ungroup = (group: Grouped): string[] => group.children.flatMap((child) => (typeof child === 'string' ? child : ungroup(child)));
 
-const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; spaced: boolean }): ReactElement => {
+export const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; spaced: boolean }): ReactElement => {
     let children: ReactElement[] = grouped.children.map((item, i) =>
         typeof item === 'string' ? (
             <RenderNode key={item} node={ctx.nodes[item]} ctx={ctx} />
@@ -508,7 +754,7 @@ const RenderGrouped = ({ grouped, ctx, spaced }: { grouped: Grouped; ctx: Ctx; s
 
 type Grouped = { id?: string; end?: string; children: (string | Grouped)[] };
 
-const partition = (ctx: Ctx, children: string[]) => {
+export const partition = (ctx: Ctx, children: string[]) => {
     // const groups: Grouped = {children: []}
     const stack: Grouped[] = [{ children: [] }];
     for (let i = 0; i < children.length; i++) {
@@ -532,61 +778,9 @@ const partition = (ctx: Ctx, children: string[]) => {
     }
     if (stack.length !== 1) {
         console.log(stack);
-        throw new Error('didnt clen up all stacks');
+        console.error('didnt clen up all stacks');
     }
     return stack[0];
-};
-
-export const RenderType = ({ t }: { t: Type }) => {
-    switch (t.type) {
-        case 'var':
-            return <span style={{ fontStyle: 'italic' }}>{t.name}</span>;
-        case 'app':
-            const args: Type[] = [t.arg];
-            let target = t.target;
-            while (target.type === 'app') {
-                args.unshift(target.arg);
-                target = target.target;
-            }
-            if (target.type === 'con' && target.name === ',') {
-                return (
-                    <span>
-                        (
-                        {interleave(
-                            args.map((a, i) => <RenderType key={i} t={a} />),
-                            (i) => (
-                                <span key={'c-' + i}>, </span>
-                            ),
-                        )}
-                        )
-                    </span>
-                );
-            }
-            if (target.type === 'con' && target.name === '->' && args.length === 2) {
-                return (
-                    <span>
-                        {'('}
-                        <RenderType t={args[0]} />
-                        {') => '}
-                        <RenderType t={args[1]} />
-                    </span>
-                );
-            }
-            return (
-                <span>
-                    <RenderType t={target} />(
-                    {interleave(
-                        args.map((a, i) => <RenderType key={i} t={a} />),
-                        (i) => (
-                            <span key={'c-' + i}>, </span>
-                        ),
-                    )}
-                    )
-                </span>
-            );
-        case 'con':
-            return <span>{t.name}</span>;
-    }
 };
 
 export const coveredLocs = (nodes: Nodes, left: string, right: string) => {
@@ -613,4 +807,33 @@ const eventSrc = (evt: Event) => {
         case 'new-var':
             return;
     }
+};
+
+const evtForStack = (at: number, events: Event[]) => {
+    let num = 0;
+    let i = 0;
+    for (; i < events.length && num < at; i++) {
+        const e = events[i];
+        if (e.type === 'stack-break') {
+            num++;
+        }
+        if (e.type === 'unify' && Object.keys(e.subst).length) {
+            num += 2;
+        }
+    }
+    return i;
+};
+
+const stackForEvt = (at: number, events: Event[]) => {
+    let num = 0;
+    for (let i = 0; i < at; i++) {
+        const e = events[i];
+        if (e.type === 'stack-break') {
+            num++;
+        }
+        if (e.type === 'unify' && Object.keys(e.subst).length) {
+            num += 2;
+        }
+    }
+    return num;
 };

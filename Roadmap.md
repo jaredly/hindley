@@ -1,4 +1,109 @@
 
+Show unification play-by-play.
+
+Maybe have it be stateful within the ShowUnify?
+show applying each substitution individually.
+
+#
+
+
+More walkthrough thoughts:
+- [ ] make ... quickpoints? bookmarks. and have the default behavior be going between bookmarks.
+  so I can do the streamlined version
+
+
+
+#
+
+Ok I think the walk through looks great.
+
+QUESTION: what things can I remove to make it simpler?
+- [x] so actually the array :: dealio is much more confusing than just having an array literal thing.
+  so I should probably do that.
+- [ ] obviously the 'early return' shenanigans. BUT I kinda want it, because it shows that we can be very typescript-looking?
+  - another option is to ditch the 'blocks have values' thing. honestly that might be better, for the moment.
+    could have a config option or something.
+- [ ] the '.attributes is a function call' thing is ... a little weird.
+- [x] the "early return" type should be shown on the left hand side, in the `(): X => ...` position.
+- [x] the for loop needs ; separators instead of , in order to be valid typescript.
+- [x] fix detection of builtins
+
+How can I reduce the visual jumping around?
+- [x] for things that will have a (1) number, reserve space for it? Will that look too weird?
+  - alternatively, make the numbers much less obtrusive, like a superscript.
+  - I should highlight the "final" number in a different color, so it's more obvious where we are.
+- [x] also reserve a spot for inferrred variables `: _`
+
+- [x] LINE NUMBERS
+  - ok so we should be able to know when we make a new line
+  - and we can pretend that my linebreak after the type of the thing doesn't exist
+
+##
+
+NAVIGATION OK FOLKS
+not just stepping through, let's supercharge it.
+click a variable, and it jumps to where that variable is replaced.
+
+Making the clickability...
+- [x] know at what stackliness a give loc (next) gets a type
+- [x] know at what stackliess we have a unify
+
+Nowww
+- [x] highlight the two things being unified
+  - [x] give Types a Src
+- [ ] but now, I want builtins to have a real src.
+  andd. hm. I think I want to highlight the component parts of the ... unification.
+  like maybe all sources in the type?
+- [-] ok disabled it, not really into it.
+
+
+##
+
+Stack showing
+
+I think the bones are there?
+need to show (1) (2) (3) etc. in the code pane on the left...
+...and want to have a beat where you show the unify thing before it's applied.
+
+- [x] have a text description of where the `unify` is coming from
+- [x] need unify to be part of the stack
+- [x] unify one & two need namessss
+- [x] when a substitution happens, highlight the thing
+- [ ] gotta highlight the 'left' and 'right' items under unification
+  - hmmm yeah.
+- [x] scope on the right
+- [x] unify: have a stack-break for each substitution, so we can see each one applied.
+- [ ] also show available type variables?
+- [x] figure out why we're getting duplicate entries like (sometype) -> (sometype)
+- [ ] could I actually animate the substitutions? that would be very cool
+- [x] OK let's actually have the types inline for variable declarations.
+
+I think maybe I want ... smaller examples?
+
+##
+
+iffff valueNull, what if I just make a variable for it?
+
+- [x] instead of tracking a /return/, just have a `return` in scope.
+  Ok that made so many things so much better.
+
+
+Unification animation ... should I do that now?
+
+
+Ok, so we want to have, like a stack.
+
+and, I want there to be ... a way to indicate like, holes? in forms.
+and as we go through, the holes get filled.
+ALSO to give context to any `unify`. like it needs to be very clear where
+that unify is coming from.
+
+ALSO I don't like the 'new type var' events. I don't think it's useful to report.
+
+Algorithm W' is interesting. (On the unification of substitutions in type inference)
+and probably worth implementing.
+Algorithm M (Proofs about a folklore let-polymorphic type inference algorithm), which passes down an "expected type", certainly has some benefits, when the type of the container is known already.
+
 # Hm sidebar
 
 - [ ] highlight the thing we just inferred for the `infer` event.

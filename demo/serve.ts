@@ -1,4 +1,4 @@
-import { readFileSync, unlinkSync, watch, writeFileSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync, watch, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { loadConfig } from '@unocss/config';
@@ -33,7 +33,10 @@ const rebuild = bounce(10, () => {
     })
         .then(async (one) => {
             if (!one.success) {
-                unlinkSync('./run.js');
+                if (existsSync('./run.js')) {
+                    unlinkSync('./run.js');
+                }
+                console.log(one);
                 throw new Error('build failureeee');
             }
             const css = await makeCss(readFileSync('./run.js', 'utf8'));
