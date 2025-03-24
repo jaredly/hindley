@@ -7,7 +7,7 @@ import { Type } from '../infer/algw/Type';
 import { Src } from '../lang/parse-dsl';
 import { interleave } from './interleave';
 
-type Evt = { type: 'compare'; one: Type; two: Type } | { type: 'subst'; name: string; value: Type };
+type Evt = { type: 'compare'; one: Type; two: Type; message: string } | { type: 'subst'; name: string; value: Type };
 
 const varBind = (name: string, type: Type, events: Evt[]): void => {
     if (type.type === 'var' && type.name === name) {
@@ -19,22 +19,31 @@ const varBind = (name: string, type: Type, events: Evt[]): void => {
 const log = (events: Evt[], evt: Evt) => events.push(evt);
 
 const unify = (one: Type, two: Type, events: Evt[]): void => {
-    log(events, { type: 'compare', one, two });
-
     if (one.type === 'var') {
+        log(events, { type: 'compare', one, two, message: 'found a substitution' });
         return varBind(one.name, two, events);
     }
     if (two.type === 'var') {
+        log(events, { type: 'compare', one, two, message: 'found a substitution' });
         return varBind(two.name, one, events);
     }
     if (one.type === 'con' && two.type === 'con') {
-        if (one.name === two.name) return;
+        if (one.name === two.name) {
+            log(events, { type: 'compare', one, two, message: 'concrete types equal' });
+            return;
+        }
         throw new Error(`Incompatible concrete types: ${one.name} vs ${two.name}`);
     }
     if (one.type === 'fn' && two.type === 'fn') {
         if (one.args.length !== two.args.length) {
             throw new Error(`number of args is different: ${one.args.length} vs ${two.args.length}`);
         }
+        log(events, {
+            type: 'compare',
+            one,
+            two,
+            message: `both functions with ${one.args.length} ${one.args.length === 1 ? 'arg' : 'args'}`,
+        });
         for (let i = 0; i < one.args.length; i++) {
             unify(one.args[i], two.args[i], events);
         }
@@ -45,6 +54,12 @@ const unify = (one: Type, two: Type, events: Evt[]): void => {
         if (one.args.length !== two.args.length) {
             throw new Error(`number of args is different`);
         }
+        log(events, {
+            type: 'compare',
+            one,
+            two,
+            message: `both generic types with ${one.args.length} ${one.args.length === 1 ? 'arg' : 'args'}`,
+        });
         unify(one.target, two.target, events);
         for (let i = 0; i < one.args.length; i++) {
             unify(one.args[i], two.args[i], events);
@@ -108,6 +123,7 @@ export const Quick = () => {
         return { one, two, selected, substs };
     }, [at, events]);
     const nevt = events[at + 1];
+    const evt = events[at];
 
     return (
         <div style={{ backgroundColor: '#efefef', padding: 32, color: 'black', fontFamily: 'Lexend' }}>
@@ -115,22 +131,25 @@ export const Quick = () => {
                 Event: <input type="range" min="-1" value={at} max={events.length} onChange={(evt) => setAt(+evt.target.value)} />
                 <span style={{}}> {at + 1} </span>
             </label>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', fontFamily: 'Jet Brains', padding: 16 }}>
-                <RenderType t={one} onClick={() => {}} selected={selected} />
-                <div style={{ flexBasis: 8 }} />
-                <RenderType t={two} onClick={() => {}} selected={selected} />
-                <div style={{ flexBasis: 8 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', fontFamily: 'Jet Brains', padding: 16, height: 224 }}>
+                <RenderType t={one} selected={selected} />
+                <div style={{ flexBasis: 8, flexShrink: 0 }} />
+                <RenderType t={two} selected={selected} />
+                <div style={{ flexBasis: 8, flexShrink: 0 }} />
+                <div style={{ fontFamily: 'Lexend' }}>
+                    {evt?.type === 'compare' ? evt.message : evt?.type === 'subst' ? `replace variable ${evt.name}` : <>&nbsp;</>}
+                </div>
+                <div style={{ flexBasis: 8, flexShrink: 0 }} />
                 <div style={{ fontFamily: 'Lexend', textDecoration: 'underline' }}>Substitutions</div>
                 {substs.map(({ name, value }) => (
                     <div key={name}>
-                        <RenderType t={{ type: 'var', name: name, src: { left: '' } }} onClick={() => {}} selected={[]} /> -&gt;{' '}
-                        <RenderType t={value} selected={[]} onClick={() => {}} />
+                        <RenderType t={{ type: 'var', name: name, src: { left: '' } }} selected={[]} /> -&gt; <RenderType t={value} selected={[]} />
                     </div>
                 ))}
                 {nevt?.type === 'subst' ? (
                     <div>
-                        <RenderType t={{ type: 'var', name: nevt.name, src: { left: '' } }} onClick={() => {}} selected={[]} /> -&gt;{' '}
-                        <RenderType t={nevt.value} selected={[]} onClick={() => {}} />
+                        <RenderType t={{ type: 'var', name: nevt.name, src: { left: '' } }} selected={[]} /> -&gt;{' '}
+                        <RenderType t={nevt.value} selected={[]} />
                     </div>
                 ) : null}
             </div>
@@ -157,7 +176,6 @@ const hlstyle = {
     // color: colors.vbl,
     // textDecoration: 'underline',
     // padding: '0 4px',
-    // lineHeight: '18px',
 
     borderRadius: 4,
     // display: 'inline-block',
@@ -181,21 +199,19 @@ const Light = ({ children, t, selected }: { selected: string[]; t: Type; childre
     );
 };
 
-const RenderType = ({ t, selected, onClick }: { t: Type; selected: string[]; onClick(vname: string): void }) => {
+const RenderType = ({ t, selected }: { t: Type; selected: string[] }) => {
     switch (t.type) {
         case 'var':
             return (
                 <span
                     style={{
                         fontStyle: 'italic',
-                        borderRadius: 6,
-                        lineHeight: '18px',
-                        display: 'inline-block',
-                        border: '1px solid transparent',
+                        // borderRadius: 6,
+                        // display: 'inline-block',
+                        // border: '1px solid transparent',
                         color: colors.vbl,
-                        cursor: 'pointer',
+                        // cursor: 'pointer',
                     }}
-                    onClick={() => onClick(t.name)}
                 >
                     <Light t={t} selected={selected}>
                         {t.name}
@@ -208,13 +224,13 @@ const RenderType = ({ t, selected, onClick }: { t: Type; selected: string[]; onC
                     <Light t={t} selected={selected}>
                         {'('}
                         {interleave(
-                            t.args.map((arg, i) => <RenderType t={arg} key={i} selected={selected} onClick={onClick} />),
+                            t.args.map((arg, i) => <RenderType t={arg} key={i} selected={selected} />),
                             (i) => (
                                 <span key={`sep-${i}`}>,&nbsp;</span>
                             ),
                         )}
                         {') => '}
-                        <RenderType t={t.result} selected={selected} onClick={onClick} />
+                        <RenderType t={t.result} selected={selected} />
                     </Light>
                 </span>
             );
@@ -231,7 +247,7 @@ const RenderType = ({ t, selected, onClick }: { t: Type; selected: string[]; onC
                         <Light t={t} selected={selected}>
                             (
                             {interleave(
-                                args.map((a, i) => <RenderType key={i} t={a} selected={selected} onClick={onClick} />),
+                                args.map((a, i) => <RenderType key={i} t={a} selected={selected} />),
                                 (i) => (
                                     <span key={'c-' + i}>, </span>
                                 ),
@@ -244,10 +260,10 @@ const RenderType = ({ t, selected, onClick }: { t: Type; selected: string[]; onC
             return (
                 <span style={{ color: colors.punct }}>
                     <Light t={t} selected={selected}>
-                        <RenderType t={target} selected={selected} onClick={onClick} />
+                        <RenderType t={target} selected={selected} />
                         &lt;
                         {interleave(
-                            args.map((a, i) => <RenderType key={i} t={a} selected={selected} onClick={onClick} />),
+                            args.map((a, i) => <RenderType key={i} t={a} selected={selected} />),
                             (i) => (
                                 <span key={'c-' + i}>, </span>
                             ),
