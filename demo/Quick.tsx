@@ -138,10 +138,20 @@ export const Quick = () => {
                 <RenderType t={two} selected={selected} />
                 <div style={{ flexBasis: 8, flexShrink: 0 }} />
                 <div style={{ fontFamily: 'Lexend' }}>
-                    {evt?.type === 'compare' ? evt.message : evt?.type === 'subst' ? `replace variable ${evt.name}` : <>&nbsp;</>}
+                    {evt?.type === 'compare' ? (
+                        evt.message
+                    ) : evt?.type === 'subst' ? (
+                        `replace variable ${evt.name}`
+                    ) : at === events.length ? (
+                        'types are now equal'
+                    ) : (
+                        <>&nbsp;</>
+                    )}
                 </div>
                 <div style={{ flexBasis: 8, flexShrink: 0 }} />
-                <div style={{ fontFamily: 'Lexend', textDecoration: 'underline' }}>Substitutions</div>
+                <div style={{ opacity: substs.length || nevt?.type === 'subst' ? 1 : 0, fontFamily: 'Lexend', textDecoration: 'underline' }}>
+                    Substitutions
+                </div>
                 {substs.map(({ name, value }) => (
                     <div key={name}>
                         <RenderType t={{ type: 'var', name: name, src: { left: '' } }} selected={[]} /> -&gt; <RenderType t={value} selected={[]} />
@@ -204,20 +214,21 @@ const RenderType = ({ t, selected }: { t: Type; selected: string[] }) => {
     switch (t.type) {
         case 'var':
             return (
-                <span
-                    style={{
-                        fontStyle: 'italic',
-                        // borderRadius: 6,
-                        // display: 'inline-block',
-                        // border: '1px solid transparent',
-                        color: colors.vbl,
-                        // cursor: 'pointer',
-                    }}
-                >
-                    <Light t={t} selected={selected}>
+                <Light t={t} selected={selected}>
+                    <span
+                        style={{
+                            fontStyle: 'italic',
+                            // borderRadius: 6,
+                            display: 'inline-block',
+                            padding: '0 2px 0 0',
+                            // border: '1px solid transparent',
+                            color: colors.vbl,
+                            // cursor: 'pointer',
+                        }}
+                    >
                         {t.name}
-                    </Light>
-                </span>
+                    </span>
+                </Light>
             );
         case 'fn':
             return (
