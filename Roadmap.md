@@ -1,4 +1,45 @@
 
+# Last Steps
+
+- [ ] make a new light color scheme for the inference stepping debugger
+- [ ] ~replace the unification dealio with my new one
+
+Slides:
+1) good
+2 & 3)
+- new screenshots w/ new color scheme
+- idk if I should keep the joke or not
+4)
+- think if there are any more reasons for HM
+5) good
+6)
+- new color scheme
+- use the Quick maybe...
+7 & 8)
+- run through
+- figure out if I want it timed, or manual
+9)
+- new color scheme
+10)
+- add a "talk to me about"
+  - type systems
+  - local-first / CRDTS
+  - structured editors
+
+
+#
+
+Ok I really just need a quick & dirty
+"walk me through this unification"
+
+(a,  int) => Array<b>
+(bool, x) => Array<string>
+
+yay quick
+
+
+##
+
 Show unification play-by-play.
 
 Maybe have it be stateful within the ShowUnify?

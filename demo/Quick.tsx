@@ -7,7 +7,10 @@ import { Type } from '../infer/algw/Type';
 import { Src } from '../lang/parse-dsl';
 import { interleave } from './interleave';
 
-type Evt = { type: 'compare'; one: Type; two: Type; message: string } | { type: 'subst'; name: string; value: Type };
+type Evt =
+    | { type: 'error'; one: Type; two: Type; message: string }
+    | { type: 'compare'; one: Type; two: Type; message: string }
+    | { type: 'subst'; name: string; value: Type };
 
 const varBind = (name: string, type: Type, events: Evt[]): void => {
     if (type.type === 'var' && type.name === name) {
@@ -32,7 +35,7 @@ const unify = (one: Type, two: Type, events: Evt[]): void => {
             log(events, { type: 'compare', one, two, message: 'the types names are the same' });
             return;
         }
-        log(events, { type: 'compare', one, two, message: 'the types names are different' });
+        log(events, { type: 'error', one, two, message: 'the types names are different' });
         throw new Error(`Incompatible concrete types: ${one.name} vs ${two.name}`);
     }
     if (one.type === 'fn' && two.type === 'fn') {
@@ -72,7 +75,11 @@ const unify = (one: Type, two: Type, events: Evt[]): void => {
 
 const runUnify = (one: Type, two: Type): Evt[] => {
     const events: Evt[] = [];
-    unify(one, two, events);
+    try {
+        unify(one, two, events);
+    } catch (err) {
+        // events.push({ type: 'error', message: (err as Error).message });
+    }
     return events;
 };
 
@@ -82,6 +89,7 @@ const msrc = (): Src => ({ left: (i++).toString().padStart(2, '0') });
 const typeOne: Type = tfns(
     [
         { type: 'var', name: 'a', src: msrc() },
+        // { type: 'con', name: 'int', src: msrc() },
         { type: 'con', name: 'int', src: msrc() },
     ],
     { type: 'app', target: { type: 'con', name: 'Array', src: msrc() }, src: msrc(), args: [{ type: 'var', name: 'b', src: msrc() }] },
@@ -110,6 +118,7 @@ export const Quick = () => {
         for (let i = 0; i <= at && i < events.length; i++) {
             const evt = events[i];
             switch (evt.type) {
+                case 'error':
                 case 'compare':
                     selected = [evt.one.src.left, evt.two.src.left];
                     break;
@@ -142,6 +151,8 @@ export const Quick = () => {
                         evt.message
                     ) : evt?.type === 'subst' ? (
                         `replace variable ${evt.name}`
+                    ) : evt?.type === 'error' ? (
+                        <span style={{ color: 'red', fontStyle: 'italic' }}>{evt.message}</span>
                     ) : at === events.length ? (
                         'types are now equal'
                     ) : (
