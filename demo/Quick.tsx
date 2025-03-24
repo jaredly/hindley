@@ -20,18 +20,19 @@ const log = (events: Evt[], evt: Evt) => events.push(evt);
 
 const unify = (one: Type, two: Type, events: Evt[]): void => {
     if (one.type === 'var') {
-        log(events, { type: 'compare', one, two, message: 'found a substitution' });
+        log(events, { type: 'compare', one, two, message: 'found a substitution for ' + one.name });
         return varBind(one.name, two, events);
     }
     if (two.type === 'var') {
-        log(events, { type: 'compare', one, two, message: 'found a substitution' });
+        log(events, { type: 'compare', one, two, message: 'found a substitution for ' + two.name });
         return varBind(two.name, one, events);
     }
     if (one.type === 'con' && two.type === 'con') {
         if (one.name === two.name) {
-            log(events, { type: 'compare', one, two, message: 'concrete types equal' });
+            log(events, { type: 'compare', one, two, message: 'the types names are the same' });
             return;
         }
+        log(events, { type: 'compare', one, two, message: 'the types names are different' });
         throw new Error(`Incompatible concrete types: ${one.name} vs ${two.name}`);
     }
     if (one.type === 'fn' && two.type === 'fn') {
@@ -42,7 +43,7 @@ const unify = (one: Type, two: Type, events: Evt[]): void => {
             type: 'compare',
             one,
             two,
-            message: `both functions with ${one.args.length} ${one.args.length === 1 ? 'arg' : 'args'}`,
+            message: `both are functions with ${one.args.length} ${one.args.length === 1 ? 'arg' : 'args'}`,
         });
         for (let i = 0; i < one.args.length; i++) {
             unify(one.args[i], two.args[i], events);
@@ -58,7 +59,7 @@ const unify = (one: Type, two: Type, events: Evt[]): void => {
             type: 'compare',
             one,
             two,
-            message: `both generic types with ${one.args.length} ${one.args.length === 1 ? 'arg' : 'args'}`,
+            message: `both are generic types with ${one.args.length} ${one.args.length === 1 ? 'arg' : 'args'}`,
         });
         unify(one.target, two.target, events);
         for (let i = 0; i < one.args.length; i++) {
