@@ -666,7 +666,7 @@ const ShowScope = ({ smap, scope, highlightVars, ctx }: { ctx: Ctx; smap: Subst;
                 <div
                     style={{
                         display: 'grid',
-                        marginTop: 24,
+                        // marginTop: 24,
                         marginBottom: 16,
                         gridTemplateColumns: 'max-content 1fr',
                         gridTemplateRows: 'max-content',
@@ -675,18 +675,24 @@ const ShowScope = ({ smap, scope, highlightVars, ctx }: { ctx: Ctx; smap: Subst;
                         minWidth: 200,
                     }}
                 >
+                    <div style={{ gridColumn: '1/3', marginBottom: 16, fontFamily: 'Lora', textAlign: 'left', marginLeft: 16 }}>Builtins</div>
                     {keys.map((k) => (
                         <div key={k} style={{ display: 'contents' }}>
                             {k === keys[firstNonBuiltin] ? (
-                                <div
-                                    style={{
-                                        gridColumn: '1/3',
-                                        height: 1,
-                                        backgroundColor: colors.accent,
-                                        marginTop: 8,
-                                        marginBottom: 8,
-                                    }}
-                                ></div>
+                                <>
+                                    <div
+                                        style={{
+                                            gridColumn: '1/3',
+                                            height: 1,
+                                            backgroundColor: colors.accent,
+                                            marginTop: 8,
+                                            marginBottom: 8,
+                                        }}
+                                    ></div>
+                                    <div style={{ gridColumn: '1/3', marginBottom: 16, fontFamily: 'Lora', textAlign: 'left', marginLeft: 16 }}>
+                                        Locals
+                                    </div>
+                                </>
                             ) : null}
                             <div style={{ textAlign: 'right', marginLeft: 16 }}>{k}</div>
                             <div style={{ textAlign: 'left' }}>
