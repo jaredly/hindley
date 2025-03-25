@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Node } from '../lang/nodes';
-import { Ctx, Wrap, styles, partition, RenderGrouped, opener, closer } from './App';
+import { Ctx, Wrap, styles, partition, RenderGrouped, opener, closer, hlNode } from './App';
 import { interleave } from './interleave';
 import { list } from '../lang/parse-dsl';
 import { colors } from './RenderType';
@@ -79,7 +79,14 @@ const RenderNode_ = ({ node, ctx }: { node: Node; ctx: Ctx }) => {
                     {/* {node.forceMultiline ? <br /> : null} */}
                     {interleave(
                         node.children.map((id) => (
-                            <span key={id} style={node.forceMultiline ? { marginLeft: 16, display: 'block' } : undefined}>
+                            <span
+                                key={id}
+                                style={
+                                    node.forceMultiline
+                                        ? { paddingLeft: 16, display: 'block', ...(ctx.highlight.includes(id) ? hlNode : {}) }
+                                        : undefined
+                                }
+                            >
                                 {node.forceMultiline ? <LineNumber loc={id} /> : null}
                                 <RenderNode key={id} node={ctx.nodes[id]} ctx={ctx} />
                                 {node.forceMultiline ? (node.kind === 'curly' ? null : sep) : null}

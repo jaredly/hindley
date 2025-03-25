@@ -28,6 +28,9 @@ Slides:
 
 # Changes I want to make to the type inference debugger
 
+- [x] theme finalizing
+- [ ] add traceback linesss
+
 #
 
 Ok I really just need a quick & dirty

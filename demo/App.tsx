@@ -132,11 +132,16 @@ const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => v
 
 type NodeClick = { type: 'var'; name: string } | { type: 'ref'; loc: string } | { type: 'decl'; loc: string };
 
+export const hlNode = {
+    background: 'rgb(206 206 249)', //colors.accentLightRgba,
+    // outline: `1px solid ${colors.accent}`,
+};
+
 export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement; id: string; ctx: Ctx; multiline?: boolean }) => {
     const t = ctx.byLoc[id];
     // const freeVbls = t ? typeFree(t) : [];
     // const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
-    const hlstyle = ctx.highlight.includes(id) ? { background: colors.accentLightRgba, outline: `1px solid ${colors.accent}` } : undefined;
+    const hlstyle = ctx.highlight.includes(id) ? hlNode : undefined;
     const num = ctx.stackSrc[id];
     return (
         <span
@@ -459,16 +464,18 @@ export const Example = ({ text }: { text: string }) => {
     }, []);
 
     // const esrc = eventSrc(glob.events[at]);
-    // const allLocs = esrc ? (esrc.right ? coveredLocs(cst.nodes, esrc.left, esrc.right) : [esrc.left]) : [];
     const allLocs: string[] = [];
 
-    // const srcLocs = (src: Src) => (src.right ? coveredLocs(cst.nodes, src.left, src.right).concat([`${src.left}:${src.right}`]) : [src.left]);
-    const srcLocs = (src: Src) => (src.right ? [`${src.left}:${src.right}`] : [src.left]);
+    const srcLocs = (src: Src) => coveredLocs(cst.nodes, src.left, src.right);
+    // const srcLocs = (src: Src) => (src.right ? [`${src.left}:${src.right}`] : [src.left]);
+    // const allLocs = esrc.flatMap(srcLocs);
 
-    // const last = stack.stack[stack.stack.length - 1];
-    // if (last.type === 'unify') {
-    //     allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
-    // }
+    const last = stack.stack[stack.stack.length - 1];
+    if (last.type === 'unify') {
+        allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
+    } else if (last.type === 'line') {
+        allLocs.push(...srcLocs(last.src));
+    }
 
     const ctx: Ctx = {
         stackSrc,
@@ -806,30 +813,41 @@ export const partition = (ctx: Ctx, children: string[]) => {
     return stack[0];
 };
 
-export const coveredLocs = (nodes: Nodes, left: string, right: string) => {
+export const coveredLocs = (nodes: Nodes, left: string, right?: string) => {
+    if (!right) {
+        const node = nodes[left];
+        if (node?.type === 'list' && node.forceMultiline) {
+            return [left, ...node.children];
+        }
+        return [left];
+    }
     for (const node of Object.values(nodes)) {
         const children = childLocs(node);
         const li = children.indexOf(left);
         if (li === -1) continue;
         const ri = children.indexOf(right);
         if (ri === -1) continue;
-        return children.slice(li, ri + 1);
+        const match = children.slice(li, ri + 1);
+        for (let i = li; i <= ri; i++) {
+            const node = nodes[children[i]];
+            if (node?.type === 'list' && node.forceMultiline) {
+                match.push(...node.children);
+            }
+        }
+        return match.concat(`${left}:${right}`);
     }
-    return [left, right];
+    return [left, right, `${left}:${right}`];
 };
 
 const eventSrc = (evt: Event) => {
     switch (evt.type) {
         case 'unify':
             // return evt.
-            return;
-        case 'scope':
-            return;
+            return [evt.one.src, evt.two.src];
         case 'infer':
-            return evt.src;
-        case 'new-var':
-            return;
+            return [evt.src];
     }
+    return [];
 };
 
 const evtForStack = (at: number, events: Event[]) => {
