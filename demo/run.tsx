@@ -13,4 +13,5 @@ const getRoot = (): Root => {
     return window._root ?? (window._root = createRoot(document.getElementById('root')!));
 };
 
-getRoot().render(<Quick />);
+// getRoot().render(<Quick />);
+getRoot().render(<App />);

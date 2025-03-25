@@ -26,6 +26,7 @@ Slides:
   - local-first / CRDTS
   - structured editors
 
+# Changes I want to make to the type inference debugger
 
 #
 

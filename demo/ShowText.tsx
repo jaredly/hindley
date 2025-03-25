@@ -1,10 +1,10 @@
 import React from 'react';
 import { StackText, Subst, typeApply } from '../infer/algw/algw-s2-return';
-import { colors, RenderType } from './RenderType';
-import { OneStack, Frame } from './App';
-import { Num } from './numColor';
+import { Frame } from './App';
 import { Numtip } from './Numtip';
+import { colors, RenderType } from './RenderType';
 import { ShowUnify } from './ShowUnify';
+import { currentTheme } from './themes';
 
 export const ShowText = ({ text, subst, hv, onClick }: { onClick(vname: string): void; hv: string[]; text: StackText; subst: Subst }) => {
     if (typeof text === 'string') return text;
@@ -14,8 +14,8 @@ export const ShowText = ({ text, subst, hv, onClick }: { onClick(vname: string):
                 <span
                     style={{
                         display: 'inline-block',
-                        border: '1px solid #aaf',
-                        background: text.active ? `#aaf` : 'transparent',
+                        border: `1px solid ${currentTheme.typeColors.accent}`,
+                        background: text.active ? currentTheme.typeColors.accent : 'transparent',
                         borderRadius: 3,
                         width: '1em',
                         height: '26px',
@@ -29,7 +29,7 @@ export const ShowText = ({ text, subst, hv, onClick }: { onClick(vname: string):
             return (
                 <span
                     style={{
-                        border: '1px solid #aaf',
+                        border: `1px solid ${currentTheme.typeColors.accent}`,
                         borderRadius: 3,
                         display: 'inline-block',
                         padding: '0px 4px',

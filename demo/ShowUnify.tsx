@@ -92,6 +92,7 @@ export const ShowUnify = ({
                     display: 'grid',
                     gridColumn: '1/3',
                     gridTemplateColumns: '1fr max-content max-content max-content 1fr',
+                    rowGap: 8,
                     columnGap: 8,
                     paddingBottom: 8,
                 }}

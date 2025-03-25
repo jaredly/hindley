@@ -6,6 +6,7 @@ import { tfns, typeApply } from '../infer/algw/algw-s2-return';
 import { Type } from '../infer/algw/Type';
 import { Src } from '../lang/parse-dsl';
 import { interleave } from './interleave';
+import { currentTheme } from './themes';
 
 type Evt =
     | { type: 'error'; one: Type; two: Type; message: string }
@@ -179,19 +180,16 @@ export const Quick = () => {
     );
 };
 
-const colors = {
-    accent: '#e57360',
-    // accent: '#aaf',
-    // accentLight: '#aaf',
-    // accentLightRgba: 'rgba(170, 170, 255, 0.3)',
-    punct: '#666',
-    // punct: '#555',
-    vbl: 'rgb(0 111 185)', //'#d32600', //#afa',
-    con: 'rgb(89 24 212)', // '#a204c8', //'#000', //'#aaf',
-    // con: '#b7b7b7', //'#aaf',
-    // hl: '#aaf', //'rgb(237 255 0)',
-    // hl2: '#ffa', //'rgb(237 255 0)',
-};
+const colors = currentTheme.typeColors;
+//     {
+//     accent: '#e57360',
+//     punct: '#666',
+//     vbl: 'rgb(0 111 185)',
+//     con: 'rgb(89 24 212)', // '#a204c8', //'#000', //'#aaf',
+//     // con: '#b7b7b7', //'#aaf',
+//     // hl: '#aaf', //'rgb(237 255 0)',
+//     // hl2: '#ffa', //'rgb(237 255 0)',
+// };
 
 const hlstyle = {
     background: '#ffa',

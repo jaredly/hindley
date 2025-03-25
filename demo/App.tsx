@@ -26,6 +26,8 @@ import { interleave } from './interleave';
 import { ShowStacks } from './ShowText';
 import { Numtip } from './Numtip';
 import { LineManager, LineNumber, RenderNode } from './RenderNode';
+import { zedcolors } from './colors';
+import { currentTheme } from './themes';
 
 const examples = {
     Un: `{\nlet x = 2\n}`,
@@ -104,15 +106,16 @@ export type Ctx = {
     multis: Record<string, true>;
 };
 
-export const styles = {
-    decl: { color: '#c879df' },
-    ref: { color: 'rgb(103 234 255)' }, //'rgb(255 90 68)' },
-    number: { color: '#e6ff00' },
-    kwd: { color: '#2852c7' },
-    punct: { color: 'gray' },
-    unparsed: { color: 'red' },
-    text: { color: 'yellow' },
-};
+export const styles = currentTheme.metaNode;
+//     {
+//     decl: { color: '#c879df' },
+//     ref: { color: 'rgb(103 234 255)' }, //'rgb(255 90 68)' },
+//     number: { color: '#e6ff00' },
+//     kwd: { color: '#2852c7' },
+//     punct: { color: 'gray' },
+//     unparsed: { color: 'red' },
+//     text: { color: 'yellow' },
+// };
 
 const traverse = (id: string, nodes: Nodes, f: (node: Node, path: string[]) => void, path: string[] = []) => {
     f(nodes[id], path);
@@ -213,7 +216,20 @@ export const App = () => {
     const [selected, setSelected] = useState('One' as keyof typeof examples);
 
     return (
-        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, display: 'flex', flexDirection: 'column' }}>
+        <div
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                bottom: 0,
+                right: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                background: currentTheme.background,
+                color: currentTheme.color,
+                overflow: 'auto',
+            }}
+        >
             <div style={{ margin: 8 }}>
                 {Object.keys(examples).map((key) => (
                     <button
@@ -572,6 +588,7 @@ export const Example = ({ text }: { text: string }) => {
                     Show Num Tips
                 </label>
             </div>
+            <Colors />
         </div>
     );
 };
@@ -836,4 +853,30 @@ const stackForEvt = (at: number, events: Event[]) => {
         }
     }
     return num;
+};
+
+const square = (name: string, color: string) => (
+    <React.Fragment key={name}>
+        <div style={{ color, fontFamily: 'Jet Brains' }}>{name}</div>
+        <div
+            style={{
+                background: color,
+                width: 20,
+                height: 20,
+                border: '1px solid black',
+            }}
+        />
+    </React.Fragment>
+);
+
+const Colors = () => {
+    const bg = '#dcdcddff';
+    // zedcolors.bg = {color: bg}
+
+    return (
+        <div style={{ background: bg, padding: 32, display: 'grid', gridTemplateColumns: 'max-content max-content' }}>
+            {square('bg', bg)}
+            {Object.keys(zedcolors).map((name) => square(name, zedcolors[name as 'attribute'].color))}
+        </div>
+    );
 };

@@ -2,24 +2,27 @@ import React from 'react';
 import { Scheme } from '../infer/algw/algw-s2-return';
 import { Type } from '../infer/algw/Type';
 import { interleave } from './interleave';
+import { currentTheme } from './themes';
 
-export const colors = {
-    accent: '#aaf',
-    accentLight: '#aaf',
-    accentLightRgba: 'rgba(170, 170, 255, 0.3)',
-    punct: '#555',
-    vbl: '#afa',
-    con: '#aaf',
-    hl: '#aaf', //'rgb(237 255 0)',
-};
+export const colors = currentTheme.typeColors;
+//     {
+//     accent: '#aaf',
+//     accentLight: '#aaf',
+//     accentLightRgba: 'rgba(170, 170, 255, 0.3)',
+//     punct: '#555',
+//     vbl: '#afa',
+//     con: '#aaf',
+//     hl: '#aaf', //'rgb(237 255 0)',
+// };
 
 const hlstyle = {
     background: colors.hl, //'#550',
-    color: 'black',
-    padding: '0 4px',
+    color: colors.hlColor,
+    padding: '0 2px 0 0',
     lineHeight: '18px',
 
-    borderRadius: '50%',
+    // borderRadius: '50%',
+    borderRadius: 4,
     display: 'inline-block',
     border: '1px solid ' + colors.hl,
 };
@@ -52,6 +55,7 @@ export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVa
                         border: '1px solid transparent',
                         color: colors.vbl,
                         cursor: 'pointer',
+                        padding: '0 2px 0 0',
                         ...(highlightVars.includes(t.name) ? hlstyle : undefined),
                     }}
                     onClick={() => onClick(t.name)}
