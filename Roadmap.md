@@ -1,7 +1,7 @@
 
 # Last Steps
 
-- [ ] make a new light color scheme for the inference stepping debugger
+- [x] make a new light color scheme for the inference stepping debugger
 - [ ] ~replace the unification dealio with my new one
 
 Slides:

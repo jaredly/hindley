@@ -595,7 +595,7 @@ export const Example = ({ text }: { text: string }) => {
                     Show Num Tips
                 </label>
             </div>
-            <Colors />
+            {/* <Colors /> */}
         </div>
     );
 };

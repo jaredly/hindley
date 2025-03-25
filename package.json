@@ -5,7 +5,7 @@
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "deploy": "cd demo && quick hindley",
+        "push": "cd demo && quick hindley",
         "test-lcov": "bun test --watch --coverage --coverage-reporter=lcov"
     },
     "keywords": [],
