@@ -24,8 +24,11 @@ export const dark = {
     },
 };
 
+// 548
+
 export const light = {
-    background: '#dcdcddff',
+    // background: '#dcdcddff',
+    background: '#efefef',
     color: zedcolors.primary.color,
 
     metaNode: {

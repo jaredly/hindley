@@ -29,6 +29,9 @@ import { LineManager, LineNumber, RenderNode } from './RenderNode';
 import { zedcolors } from './colors';
 import { currentTheme } from './themes';
 
+// const LEFT_WIDTH = 460
+const LEFT_WIDTH = 548;
+
 const examples = {
     Un: `{\nlet x = 2\n}`,
     Multi: `(x, y, z) => {\n(x(2, y), x(z, true))}`,
@@ -44,7 +47,7 @@ return input}
 let pivot = input[input.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < input.length; i += "1") {
+for (let i = 0; i < input.length; i += 1) {
 if (input[i] <= pivot) {
     leftArr.push(input[i])
 } else {
@@ -217,7 +220,7 @@ export type OneStack =
     | { type: 'unify'; one: Type; subst: Subst; two: Type; src: Src; oneName: string; twoName: string; message?: string; first?: boolean };
 
 export const App = () => {
-    const [selected, setSelected] = useState('One' as keyof typeof examples);
+    const [selected, setSelected] = useState('Quicksort' as keyof typeof examples);
 
     return (
         <div
@@ -556,8 +559,8 @@ export const Example = ({ text }: { text: string }) => {
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
                     <div
                         style={{
-                            width: 460,
-                            minWidth: 460,
+                            width: LEFT_WIDTH,
+                            minWidth: LEFT_WIDTH,
                             marginRight: 16,
                             fontFamily: 'Jet Brains',
                             display: 'flex',

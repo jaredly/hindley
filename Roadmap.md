@@ -1,31 +1,37 @@
 
+// Switchfoot / Something More
+
 # Last Steps
 
 - [x] make a new light color scheme for the inference stepping debugger
-- [ ] ~replace the unification dealio with my new one
+- [x] ~replace the unification dealio with my new one
 
 Slides:
 1) good
 2 & 3)
-- new screenshots w/ new color scheme
-- idk if I should keep the joke or not
+- [x] new screenshots w/ new color scheme
+- [ ] idk if I should keep the joke or not
 4)
 - think if there are any more reasons for HM
 - maybe switch the sides?
 5) good
 6)
-- new color scheme
-- use the Quick maybe...
+- [x] new color scheme
+- [-] use the Quick maybe...
 7 & 8)
 - run through
 - figure out if I want it timed, or manual
 9)
-- new color scheme
+- [x] new color scheme
 10)
-- add a "talk to me about"
+- [x] add a "talk to me about"
   - type systems
   - local-first / CRDTS
   - structured editors
+- [x] credit with thanks
+
+I'd like to credit you in my presentation for helping me prepare -- if you're ok with that, what name/handle would you like me to use?
+
 
 # Changes I want to make to the type inference debugger
 
