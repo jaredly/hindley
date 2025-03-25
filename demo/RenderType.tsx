@@ -3,6 +3,7 @@ import { Scheme } from '../infer/algw/algw-s2-return';
 import { Type } from '../infer/algw/Type';
 import { interleave } from './interleave';
 import { currentTheme } from './themes';
+// import { hlNode } from './App';
 
 export const colors = currentTheme.typeColors;
 //     {
@@ -14,17 +15,35 @@ export const colors = currentTheme.typeColors;
 //     con: '#aaf',
 //     hl: '#aaf', //'rgb(237 255 0)',
 // };
+const bgbg = 'rgb(206 206 249)'; //colors.accentLightRgba,
 
-const hlstyle = {
-    background: colors.hl, //'#550',
-    color: colors.hlColor,
-    padding: '0 2px 0 0',
-    lineHeight: '18px',
+export const hlShadow: React.CSSProperties = {
+    // background: colors.hl, //'#550',
+    // color: colors.hlColor,
+    // padding: '0 2px 0 0',
+    // lineHeight: '18px',
 
-    // borderRadius: '50%',
+    // // borderRadius: '50%',
+    // borderRadius: 4,
+    // display: 'inline-block',
+    // border: '1px solid ' + colors.hl,
+    background: bgbg,
+    position: 'relative',
+    zIndex: 10,
+
     borderRadius: 4,
-    display: 'inline-block',
-    border: '1px solid ' + colors.hl,
+    boxShadow: `
+    2px 2px 0 ${bgbg},
+    -2px -2px 0 ${bgbg},
+    2px -2px 0 ${bgbg},
+    -2px 2px 0 ${bgbg},
+    0px 4px 0 ${colors.accent},
+    0px -4px 0 ${colors.accent},
+    4px 4px 0 ${colors.accent},
+    -4px 4px 0 ${colors.accent},
+    4px -4px 0 ${colors.accent},
+    -4px -4px 0 ${colors.accent}
+    `,
 };
 
 export const RenderScheme = ({ s, highlightVars, onClick }: { s: Scheme; highlightVars: string[]; onClick(vname: string): void }) => {
@@ -56,7 +75,7 @@ export const RenderType = ({ t, highlightVars, onClick }: { t: Type; highlightVa
                         color: colors.vbl,
                         cursor: 'pointer',
                         padding: '0 2px 0 0',
-                        ...(highlightVars.includes(t.name) ? hlstyle : undefined),
+                        ...(highlightVars.includes(t.name) ? hlShadow : undefined),
                     }}
                     onClick={() => onClick(t.name)}
                 >

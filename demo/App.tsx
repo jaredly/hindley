@@ -21,7 +21,7 @@ import {
 import { Expr, Stmt, traverseStmt, Type } from '../infer/algw/Type';
 import { Src } from '../lang/parse-dsl';
 import { RenderEvent } from './RenderEvent';
-import { colors, RenderScheme, RenderType } from './RenderType';
+import { colors, hlShadow, RenderScheme, RenderType } from './RenderType';
 import { interleave } from './interleave';
 import { ShowStacks } from './ShowText';
 import { Numtip } from './Numtip';
@@ -44,7 +44,7 @@ return input}
 let pivot = input[input.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < input.length; i += 1) {
+for (let i = 0; i < input.length; i += "1") {
 if (input[i] <= pivot) {
     leftArr.push(input[i])
 } else {
@@ -94,6 +94,7 @@ export const braceColorHl = 'rgb(0, 150, 150)';
 
 export type Ctx = {
     showTips: boolean;
+    calloutAnnotations: boolean;
     onClick(evt: NodeClick): void;
     highlightVars: string[];
     blanks: boolean;
@@ -186,13 +187,11 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
                     {children}
                 </span>
                 {t || (ctx.blanks && t === false) ? (
-                    <span
-                        style={{
-                            // fontSize: '80%',
-                            color: '#666',
-                        }}
-                    >
-                        : {t ? <RenderType t={t} highlightVars={ctx.highlightVars} onClick={(name) => ctx.onClick({ type: 'var', name })} /> : '_'}
+                    <span style={{ color: '#666' }}>
+                        {': '}
+                        <span style={ctx.calloutAnnotations ? hlShadow : undefined}>
+                            {t ? <RenderType t={t} highlightVars={ctx.highlightVars} onClick={(name) => ctx.onClick({ type: 'var', name })} /> : '_'}
+                        </span>
                     </span>
                 ) : null}
             </span>
@@ -269,6 +268,9 @@ const nextIndex = <T,>(arr: T[], f: (t: T) => any, start = 0) => {
 export const Example = ({ text }: { text: string }) => {
     const [blanks, setBlanks] = useState(true);
     const [showTips, setShowTips] = useState(true);
+    const [highlight, setHighlight] = useState(true);
+    const [skipFirst, setSkipFirst] = useState(false);
+    const [calloutAnnot, setCalloutAnnot] = useState(false);
 
     const { glob, res, cst, node, parsed } = useMemo(() => {
         const cst = lex(js, text);
@@ -408,8 +410,16 @@ export const Example = ({ text }: { text: string }) => {
         Object.keys(byLoc).forEach((k) => {
             if (byLoc[k]) byLoc[k] = typeApply(smap, byLoc[k]);
         });
+
+        if (skipFirst) {
+            const k = Object.keys(byLoc)[0];
+            if (k) {
+                delete byLoc[k];
+            }
+        }
+
         return { byLoc, subst, types, scope, smap, stack: stacks[at], highlightVars, activeVbls };
-    }, [at]);
+    }, [at, skipFirst]);
 
     const scopeToShow = useMemo(() => {
         const res: Tenv['scope'] = {};
@@ -470,17 +480,20 @@ export const Example = ({ text }: { text: string }) => {
     // const srcLocs = (src: Src) => (src.right ? [`${src.left}:${src.right}`] : [src.left]);
     // const allLocs = esrc.flatMap(srcLocs);
 
-    const last = stack.stack[stack.stack.length - 1];
-    if (last.type === 'unify') {
-        allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
-    } else if (last.type === 'line') {
-        allLocs.push(...srcLocs(last.src));
+    if (highlight) {
+        const last = stack.stack[stack.stack.length - 1];
+        if (last.type === 'unify') {
+            allLocs.push(...srcLocs(last.one.src), ...srcLocs(last.two.src));
+        } else if (last.type === 'line') {
+            allLocs.push(...srcLocs(last.src));
+        }
     }
 
     const ctx: Ctx = {
         stackSrc,
         highlight: allLocs,
         showTips,
+        calloutAnnotations: calloutAnnot,
         multis,
         spans,
         nodes: cst.nodes,
@@ -528,12 +541,6 @@ export const Example = ({ text }: { text: string }) => {
             <div style={{ margin: 32 }}>
                 Hindley Milner Type Inference Stepping Debugger
                 <div style={{ marginBottom: 32, marginTop: 8 }}>
-                    <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.max(0, at - 1))}>
-                        ⬅️
-                    </button>
-                    <button style={{ padding: 4, cursor: 'pointer' }} onClick={() => setAt(Math.min(at + 1, breaks - 1))}>
-                        ➡️
-                    </button>
                     <input
                         type="range"
                         min="0"
@@ -593,6 +600,18 @@ export const Example = ({ text }: { text: string }) => {
                 <label style={{ padding: 8 }}>
                     <input type="checkbox" checked={showTips} onChange={() => setShowTips(!showTips)} />
                     Show Num Tips
+                </label>
+                <label style={{ padding: 8 }}>
+                    <input type="checkbox" checked={highlight} onChange={() => setHighlight(!highlight)} />
+                    Highlight
+                </label>
+                <label style={{ padding: 8 }}>
+                    <input type="checkbox" checked={skipFirst} onChange={() => setSkipFirst(!skipFirst)} />
+                    SkipFirst
+                </label>
+                <label style={{ padding: 8 }}>
+                    <input type="checkbox" checked={calloutAnnot} onChange={() => setCalloutAnnot((k) => !k)} />
+                    Callout annotations
                 </label>
             </div>
             {/* <Colors /> */}

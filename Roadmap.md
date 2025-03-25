@@ -11,6 +11,7 @@ Slides:
 - idk if I should keep the joke or not
 4)
 - think if there are any more reasons for HM
+- maybe switch the sides?
 5) good
 6)
 - new color scheme

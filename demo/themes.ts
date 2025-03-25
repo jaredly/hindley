@@ -35,7 +35,7 @@ export const light = {
         kwd: { color: zedcolors.keyword.color },
         punct: { color: zedcolors['punctuation.delimiter'].color },
         unparsed: { color: 'red' },
-        text: { color: 'yellow' },
+        text: { color: zedcolors.string.color },
     },
     typeColors: {
         accent: zedcolors.enum.color,
