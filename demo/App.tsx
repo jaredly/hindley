@@ -151,29 +151,9 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
         <span
             data-id={id}
             style={{
-                // marginBottom: 1,
-                // borderBottomWidth: multiline ? 0 : 3,
-                // borderColor: color ?? 'transparent',
-                // borderStyle: 'solid',
-                //
                 display: !multiline ? 'inline-block' : 'inline',
-                // borderRadius: 4,
-                // backgroundColor: 'rgba(255,0,0,0.01)',
-                // backgroundColor: bgc,
-                // alignItems: 'flex-start',
             }}
         >
-            {/* {multiline ? (
-                <span
-                    style={{
-                        display: 'inline-block',
-                        color: color ?? 'transparent',
-                        fontWeight: 'bold',
-                    }}
-                >
-                    {'('}
-                </span>
-            ) : null} */}
             <span
                 style={
                     multiline
@@ -184,7 +164,6 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
                           }
                 }
             >
-                {/* <span style={{ color: '#faa', backgroundColor: '#500', fontSize: '50%', borderRadius: 3 }}>{id}</span> */}
                 <span style={{ ...hlstyle, borderRadius: 4 }}>
                     <span style={{ position: 'relative' }}>{num && ctx.showTips ? <Numtip inline n={num.num} final={num.final} /> : null}</span>
                     {children}
@@ -198,17 +177,6 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
                     </span>
                 ) : null}
             </span>
-            {/* {multiline ? (
-                <span
-                    style={{
-                        display: 'inline-block',
-                        color: color ?? 'transparent',
-                        fontWeight: 'bold',
-                    }}
-                >
-                    {')'}
-                </span>
-            ) : null} */}
         </span>
     );
 };
