@@ -30,18 +30,10 @@ import { zedcolors } from './colors';
 import { currentTheme } from './themes';
 
 // const LEFT_WIDTH = 460
-const LEFT_WIDTH = 360;
-// const LEFT_WIDTH = 548;
+// const LEFT_WIDTH = 360;
+const LEFT_WIDTH = 548;
 
 const examples = {
-    Un: `{\nlet x = 2\n}`,
-    Multi: `(x, y, z) => {\n(x(2, y), x(z, true))}`,
-    X1: `(x) => x(2, true)`,
-    X2: `let f = (x,m,n) => {\nlet z = [x(m,n),m];x(2, true)}`,
-    'Function & Pattern': `(one, (two, three)) => one + three`,
-    One: `let f = (arg) => {
-    let (one, two) = arg; one + 2}`,
-    Two: '{\nlet names = [];names.push("Kai")}',
     Quicksort: `let quicksort = (input) => {
 if (input.length <= 1) {
 return input}
@@ -62,7 +54,7 @@ return [
 if (n <= 1) {\nreturn 1}
 return fib(n - 1) + fib(n - 2)
 }`,
-    Fib2: `let fib = (n) => {
+    'Imperative Fibbonacci': `let fib = (n) => {
     let fibs = []
     for (let i = 0; i < n; i += 1) {
         if (i <= 1) {
@@ -73,6 +65,11 @@ return fib(n - 1) + fib(n - 2)
     }
     return fibs[0]
 }`,
+    'Simple Variable': `{\nlet x = 2\n}`,
+    'Functions as arguments': `(x, y, z) => {\n(x(2, y), x(z, true))}`,
+    'Complex constraints': `let f = (x,m,n) => {\nlet z = [x(m,n),m];x(2, true)}`,
+    'Destructured argument': `(one, (two, three)) => one + three`,
+    Array: '{\nlet names = [];names.push("Kai")}',
     Example: `{
 let example = (value, f) => {
     let things = []
@@ -83,7 +80,7 @@ let example = (value, f) => {
 }
     example
 }`,
-    Generic: `{
+    'Generic Function': `{
     let two = (a) => [a, a];
     (two(1), two(true))
 }`,

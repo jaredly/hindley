@@ -89,20 +89,20 @@ const msrc = (): Src => ({ left: (i++).toString().padStart(2, '0') });
 
 const typeOne: Type = tfns(
     [
-        { type: 'var', name: 'a', src: msrc() },
-        // { type: 'con', name: 'int', src: msrc() },
+        // { type: 'var', name: 'a', src: msrc() },
+        { type: 'con', name: 'int', src: msrc() },
         { type: 'con', name: 'int', src: msrc() },
     ],
-    { type: 'app', target: { type: 'con', name: 'Array', src: msrc() }, src: msrc(), args: [{ type: 'var', name: 'b', src: msrc() }] },
+    { type: 'app', target: { type: 'con', name: 'Array', src: msrc() }, src: msrc(), args: [{ type: 'con', name: 'string', src: msrc() }] },
     msrc(),
 );
 
 const typeTwo: Type = tfns(
     [
         { type: 'con', name: 'bool', src: msrc() },
-        { type: 'var', name: 'x', src: msrc() },
+        { type: 'con', name: 'int', src: msrc() },
     ],
-    { type: 'app', target: { type: 'con', name: 'Array', src: msrc() }, src: msrc(), args: [{ type: 'con', name: 'string', src: msrc() }] },
+    { type: 'app', target: { type: 'con', name: 'Array', src: msrc() }, src: msrc(), args: [{ type: 'var', name: 'b', src: msrc() }] },
     msrc(),
 );
 
