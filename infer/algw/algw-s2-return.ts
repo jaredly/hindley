@@ -304,7 +304,9 @@ export const unifyInner = (one: Type, two: Type): Subst => {
     }
     if (one.type === 'con' && two.type === 'con') {
         if (one.name === two.name) return {};
-        throw new Error(`Incompatible concrete types: ${one.name} vs ${two.name}`);
+        stackBreak(`Incompatible concrete types: ${one.name} vs ${two.name}`);
+        // throw new Error(`Incompatible concrete types: ${one.name} vs ${two.name}`);
+        return {};
     }
     if (one.type === 'fn' && two.type === 'fn') {
         if (one.args.length !== two.args.length) {

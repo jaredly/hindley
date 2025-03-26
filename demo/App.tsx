@@ -30,7 +30,8 @@ import { zedcolors } from './colors';
 import { currentTheme } from './themes';
 
 // const LEFT_WIDTH = 460
-const LEFT_WIDTH = 548;
+const LEFT_WIDTH = 360;
+// const LEFT_WIDTH = 548;
 
 const examples = {
     Un: `{\nlet x = 2\n}`,
@@ -47,7 +48,7 @@ return input}
 let pivot = input[input.length - 1]
 let leftArr = []
 let rightArr = []
-for (let i = 0; i < input.length; i += 1) {
+for (let i = 0; i < input.length; i += "1") {
 if (input[i] <= pivot) {
     leftArr.push(input[i])
 } else {
@@ -145,23 +146,29 @@ export const Wrap = ({ children, id, ctx, multiline }: { children: ReactElement;
     const t = ctx.byLoc[id];
     // const freeVbls = t ? typeFree(t) : [];
     // const color = ctx.byLoc[id] ? (freeVbls.length ? '#afa' : 'green') : null;
-    const hlstyle = ctx.highlight.includes(id) ? hlNode : undefined;
+    const hlstyle = ctx.highlight[0] === id && !multiline ? hlShadow : ctx.highlight.includes(id) ? hlNode : undefined;
     const num = ctx.stackSrc[id];
     return (
         <span
             data-id={id}
-            style={{
-                display: !multiline ? 'inline-block' : 'inline',
-            }}
+            style={
+                t
+                    ? {
+                          display: !multiline ? 'inline-block' : 'inline',
+                      }
+                    : undefined
+            }
         >
             <span
                 style={
-                    multiline
-                        ? { verticalAlign: 'top' }
-                        : {
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                          }
+                    !t
+                        ? undefined
+                        : multiline
+                          ? { verticalAlign: 'top' }
+                          : {
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                            }
                 }
             >
                 <span style={{ ...hlstyle, borderRadius: 4 }}>
@@ -406,11 +413,18 @@ export const Example = ({ text }: { text: string }) => {
     if (stack?.stack.length) {
         let last = stack.stack.length - 1;
         if (stack.stack[last].type === 'unify') last--;
-        stack?.stack.forEach((item, i) => {
+        stack.stack.forEach((item, i) => {
             // if (!stackSrc[srcKey(item.src)]) {
             stackSrc[item.src.left] = { num: i + 1, final: i === last };
             // }
         });
+        for (let i = stack.stack.length - 1; i >= 0; i--) {
+            const item = stack.stack[i];
+            if (item.src.left !== 'builtin') {
+                stackSrc[item.src.left].final = true;
+                break;
+            }
+        }
     }
 
     const multis = useMemo(() => {
@@ -448,6 +462,7 @@ export const Example = ({ text }: { text: string }) => {
     const allLocs: string[] = [];
 
     const srcLocs = (src: Src) => coveredLocs(cst.nodes, src.left, src.right);
+    // TODO: Indicate somehow whether you are the "outermost" highlight, or ... one of the inner ones?
     // const srcLocs = (src: Src) => (src.right ? [`${src.left}:${src.right}`] : [src.left]);
     // const allLocs = esrc.flatMap(srcLocs);
 
@@ -459,10 +474,11 @@ export const Example = ({ text }: { text: string }) => {
             allLocs.push(...srcLocs(last.src));
         }
     }
+    // console.log(allLocs);
 
     const ctx: Ctx = {
         stackSrc,
-        highlight: allLocs,
+        highlight: allLocs.filter((n) => n !== 'builtin'),
         showTips,
         calloutAnnotations: calloutAnnot,
         multis,
@@ -824,9 +840,9 @@ export const coveredLocs = (nodes: Nodes, left: string, right?: string) => {
                 match.push(...node.children);
             }
         }
-        return match.concat(`${left}:${right}`);
+        return [`${left}:${right}`, ...match];
     }
-    return [left, right, `${left}:${right}`];
+    return [`${left}:${right}`, left, right];
 };
 
 const eventSrc = (evt: Event) => {
